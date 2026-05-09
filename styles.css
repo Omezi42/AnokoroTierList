@@ -80,7 +80,7 @@ aside {
 .side-btn:hover { background: #f8fafc; color: var(--text-main); }
 .side-btn.active { background: var(--primary-glow); color: var(--primary); }
 
-main { height: 100vh; overflow-y: auto; position: relative; }
+main { height: 100vh; overflow-y: auto; position: relative; padding-bottom: 220px; }
 
 .top-bar {
   position: sticky;
@@ -310,15 +310,40 @@ select:focus { box-shadow: 0 0 0 4px var(--primary-glow); border-color: var(--pr
   overflow: visible !important;
 }
 
-/* Inventory Tray */
+/* Global Inventory Tray (Persistent at bottom) */
+.global-inventory-tray {
+  position: fixed;
+  bottom: 0;
+  left: 260px; /* Sidebar width */
+  right: 0;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.05);
+  z-index: 1000;
+  padding: 0.75rem 0;
+  transition: all 0.3s;
+}
+
+@media (max-width: 1024px) {
+  .global-inventory-tray { left: 0; }
+}
+
 .inventory-container {
-  margin-top: 4rem;
+  margin-top: 0;
+  padding: 0 2rem;
+}
+
+.inventory-container h3 {
+  font-size: 0.9rem !important;
+  color: var(--text-muted);
 }
 
 .tray-wrapper {
-  background: #f1f5f9;
-  border-radius: var(--radius-xl);
-  padding: 2.5rem;
+  background: rgba(248, 250, 252, 0.4);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
   border: 1px solid var(--border);
   overflow: visible !important;
 }
@@ -326,7 +351,7 @@ select:focus { box-shadow: 0 0 0 4px var(--primary-glow); border-color: var(--pr
 .tray-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 20px; /* 余白を広げてボタンが重ならないように */
+  gap: 12px;
 }
 
 .tray-icon-img {
@@ -382,9 +407,28 @@ select:focus { box-shadow: 0 0 0 4px var(--primary-glow); border-color: var(--pr
 
 .matchup-table select {
   width: 100%;
-  max-width: 80px;
+  padding: 6px 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--slate-200);
+  background: var(--slate-50);
+  font-weight: 800;
   text-align: center;
+  appearance: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 50px;
 }
+
+/* Matchup Color Classes */
+.match-plus-4 { background: #064e3b !important; color: white; }
+.match-plus-3 { background: #065f46 !important; color: white; }
+.match-plus-2 { background: #047857 !important; color: white; }
+.match-plus-1 { background: #10b981 !important; color: white; }
+.match-zero   { background: #94a3b8 !important; color: white; }
+.match-minus-1 { background: #f43f5e !important; color: white; }
+.match-minus-2 { background: #e11d48 !important; color: white; }
+.match-minus-3 { background: #be123c !important; color: white; }
+.match-minus-4 { background: #881337 !important; color: white; }
 
 /* Search & Results */
 .search-results-box {
@@ -488,3 +532,22 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
 }
 
 .plot-item:hover { transform: scale(1.1); z-index: 30; }
+
+/* Help Box Styles */
+.help-box {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-left: 4px solid var(--primary);
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 2rem;
+  font-size: 0.85rem;
+  color: var(--slate-600);
+  line-height: 1.6;
+}
+
+.help-box strong {
+  color: var(--primary-dark);
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.95rem;
+}

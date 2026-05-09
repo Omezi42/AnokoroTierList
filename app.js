@@ -34,7 +34,6 @@ let state = {
     { id: 't4', name: 'C', color: '#7fff7f' }
   ],
   iconSize: 84,
-  dragGrabOffset: { x: 0, y: 0 },
   lastPos: { x: 0, y: 0 } 
 };
 
@@ -45,7 +44,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   renderInventory();
   renderTierList();
   setupSearch();
-  setupPlotter();
   setupPlotterLabels();
   await checkSharedId();
   
@@ -63,6 +61,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   window.downloadIcon = downloadIcon;
   window.addTierRow = addTierRow;
   window.addToMatchup = addToMatchup;
+  window.addToPlotter = addToPlotter;
   window.deleteIcon = deleteIcon;
   window.clearInventory = clearInventory;
   window.moveTier = moveTier;
@@ -90,11 +89,22 @@ function setupNav() {
       document.getElementById(viewId).classList.add('active');
       document.getElementById('current-view-name').innerText = btn.innerText.trim();
       
-      // タブ切り替え時にインベントリのSortable設定を更新する必要がある場合があるため、再セットアップ
-      if (viewId === 'tier-list') renderTierList();
-      if (viewId === 'plotter') setupPlotter();
+      initTraySortable(viewId);
+      renderInventory(); 
     };
   });
+}
+
+function initTraySortable(viewId) {
+  const inventoryEl = document.getElementById('icon-inventory');
+  if (!inventoryEl) return;
+  
+  const existing = Sortable.get(inventoryEl);
+  if (existing) existing.destroy();
+  
+  if (viewId === 'tier-list') {
+    new Sortable(inventoryEl, { group: { name: 'shared', pull: 'clone', put: false }, animation: 200, sort: false });
+  }
 }
 
 async function fetchCardNames() {
@@ -202,13 +212,18 @@ function renderInventory() {
       deleteIcon(item.id);
     };
     
-    // 現在のアクティブなビューに応じて、トレイ上のクリック挙動を変える（相性表など）
     const activeView = document.querySelector('.view-container.active');
-    if (activeView && activeView.id === 'matchup') {
-      img.onclick = () => addToMatchup(item.id);
-      img.style.cursor = 'pointer';
-    } else {
-      img.style.cursor = 'grab';
+    if (activeView) {
+      if (activeView.id === 'matchup') {
+        img.onclick = () => addToMatchup(item.id);
+        img.style.cursor = 'pointer';
+      } else if (activeView.id === 'plotter') {
+        img.onclick = () => addToPlotter(item.id);
+        img.style.cursor = 'pointer';
+      } else {
+        img.onclick = null;
+        img.style.cursor = 'grab';
+      }
     }
     
     wrap.appendChild(img);
@@ -290,14 +305,10 @@ function renderTierList() {
       }
     });
   });
-  
-  const inventoryEl = document.getElementById('icon-inventory');
-  if (inventoryEl) {
-    new Sortable(inventoryEl, { group: { name: 'shared', pull: 'clone', put: false }, animation: 200, sort: false });
-  }
 }
 
 function applyTierPreset(type) {
+  if (!confirm("Tier表の内容がリセットされます。よろしいですか？")) return;
   if (type === 's-c') {
     state.tiers = [
       { id: 't1', name: 'S', color: '#ff7f7f' },
@@ -368,20 +379,62 @@ function addToMatchup(id) {
     </td>
   `;
   
-  const cols = header.cells.length - 1;
+  const options = ['+4','+3','+2','+1','±0','-1','-2','-3','-4'];
+  const optionsHtml = options.map(o => `<option value="${o}" ${o === '±0' ? 'selected' : ''}>${o}</option>`).join('');
+  
+  const cols = header.cells.length - 2; // -1 (デッキ名) -1 (Score)
   for (let i = 0; i < cols; i++) {
     const td = document.createElement('td');
-    td.innerHTML = `<div class="cell-content"><select><option>±0</option><option>+1</option><option>-1</option><option>+2</option><option>-2</option></select></div>`;
+    td.innerHTML = `<div class="cell-content"><select onchange="updateMatchupColor(this)" class="match-zero">${optionsHtml}</select></div>`;
     tr.appendChild(td);
   }
+  
+  const scoreTd = document.createElement('td');
+  scoreTd.className = 'matchup-score-cell';
+  scoreTd.innerText = '0';
+  tr.appendChild(scoreTd);
   body.appendChild(tr);
   
   Array.from(body.rows).forEach((row, idx) => {
     if (idx === body.rows.length - 1) return;
     const td = document.createElement('td');
-    td.innerHTML = `<div class="cell-content"><select><option>±0</option><option>+1</option><option>-1</option><option>+2</option><option>-2</option></select></div>`;
-    row.appendChild(td);
+    td.innerHTML = `<div class="cell-content"><select onchange="updateMatchupColor(this)" class="match-zero">${optionsHtml}</select></div>`;
+    row.insertBefore(td, row.querySelector('.matchup-score-cell'));
   });
+}
+
+window.updateMatchupColor = function(select) {
+  const val = select.value;
+  select.classList.remove('match-plus-4', 'match-plus-3', 'match-plus-2', 'match-plus-1', 'match-zero', 'match-minus-1', 'match-minus-2', 'match-minus-3', 'match-minus-4');
+  
+  if (val.includes('+')) {
+    const num = val.replace('+', '');
+    select.classList.add(`match-plus-${num}`);
+  } else if (val.includes('-')) {
+    const num = val.replace('-', '');
+    select.classList.add(`match-minus-${num}`);
+  } else {
+    select.classList.add('match-zero');
+  }
+  calculateRowScore(select.closest('tr'));
+};
+
+function calculateRowScore(row) {
+  const selects = row.querySelectorAll('select');
+  let total = 0;
+  selects.forEach(s => {
+    const v = s.value;
+    if (v.includes('+')) total += parseInt(v.replace('+', ''));
+    if (v.includes('-')) total -= parseInt(v.replace('-', ''));
+  });
+  
+  const scoreCell = row.querySelector('.matchup-score-cell');
+  if (scoreCell) {
+    scoreCell.innerText = (total > 0 ? '+' : '') + total;
+    scoreCell.style.color = total > 0 ? '#10b981' : (total < 0 ? '#f43f5e' : '#94a3b8');
+    scoreCell.style.fontWeight = '900';
+    scoreCell.style.fontSize = '1.2rem';
+  }
 }
 
 function deleteMatchupRow(id) { if (confirm("この行を削除しますか？")) document.getElementById(id).remove(); }
@@ -397,37 +450,25 @@ function deleteMatchupCol(colId) {
 }
 
 // --- Plotter ---
-function setupPlotter() {
+function addToPlotter(id) {
+  const icon = state.inventory.find(i => i.id === id);
+  if (!icon) return;
   const area = document.getElementById('plot-area');
-  const inventoryEl = document.getElementById('icon-inventory');
-  if (!area || !inventoryEl) return;
+  const r = area.getBoundingClientRect();
   
-  new Sortable(inventoryEl, {
-    group: { name: 'plot', pull: 'clone', put: false },
-    onStart: (e) => {
-      const rect = e.item.getBoundingClientRect();
-      state.dragGrabOffset.x = state.lastPos.x - rect.left;
-      state.dragGrabOffset.y = state.lastPos.y - rect.top;
-    },
-    onEnd: (e) => {
-      const r = area.getBoundingClientRect();
-      const x = state.lastPos.x - r.left;
-      const y = state.lastPos.y - r.top;
-      
-      if (state.lastPos.x > r.left - 50 && state.lastPos.x < r.right + 50 && 
-          state.lastPos.y > r.top - 50 && state.lastPos.y < r.bottom + 50) {
-        const img = e.item.querySelector('img');
-        if (img) createPlotItem(img.src, x, y);
-      }
-    }
-  });
+  // 重なり防止：中心から±20pxのランダムな位置に配置
+  const jitterX = (Math.random() - 0.5) * 40;
+  const jitterY = (Math.random() - 0.5) * 40;
+  
+  createPlotItem(icon.dataUrl, (r.width / 2) + jitterX, (r.height / 2) + jitterY);
 }
 
 function createPlotItem(src, x, y) {
   const el = document.createElement('div');
   el.className = 'plot-item group';
-  el.style.left = `${x - state.dragGrabOffset.x}px`;
-  el.style.top = `${y - state.dragGrabOffset.y}px`;
+  const offset = state.iconSize / 2;
+  el.style.left = `${x - offset}px`;
+  el.style.top = `${y - offset}px`;
   
   el.innerHTML = `
     <img src="${src}">
@@ -443,17 +484,30 @@ function createPlotItem(src, x, y) {
   el.onmousedown = (e) => {
     if (e.target === del) return;
     e.preventDefault();
-    const rect = el.getBoundingClientRect();
-    const ox = e.clientX - rect.left;
-    const oy = e.clientY - rect.top;
+    
+    // ドラッグ中の演出制御
+    el.style.transition = 'none';
+    el.style.zIndex = '100';
+    
+    // 掴んだ瞬間のマウス位置と要素の現在位置を記録
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startL = parseInt(el.style.left) || 0;
+    const startT = parseInt(el.style.top) || 0;
     
     const move = (me) => {
-      const areaRect = document.getElementById('plot-area').getBoundingClientRect();
-      el.style.left = `${me.clientX - areaRect.left - ox}px`;
-      el.style.top = `${me.clientY - areaRect.top - oy}px`;
+      // マウスが動いた距離（デルタ）を計算
+      const dx = me.clientX - startX;
+      const dy = me.clientY - startY;
+      
+      // 元の位置にデルタを加算（配置時のずらしが維持される）
+      el.style.left = `${startL + dx}px`;
+      el.style.top = `${startT + dy}px`;
     };
     
     const stop = () => {
+      el.style.transition = '';
+      el.style.zIndex = '';
       document.removeEventListener('mousemove', move);
       document.removeEventListener('mouseup', stop);
     };
