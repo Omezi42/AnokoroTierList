@@ -77,41 +77,19 @@
               <button class="btn btn-ghost w-full" onclick="downloadIcon()">PNG保存</button>
             </div>
           </div>
-        </div>
-
-        <div class="inventory-container">
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-black">インベントリ</h2>
-            <div class="flex gap-4">
-              <label class="btn btn-ghost text-xs cursor-pointer">
-                画像をアップロード
-                <input type="file" id="custom-upload" hidden accept="image/*" onchange="handleCustomUpload(this)">
-              </label>
-              <button class="btn btn-ghost text-xs text-rose-500" onclick="clearInventory()">クリア</button>
-            </div>
-          </div>
-          <div class="tray-wrapper">
-            <div id="icon-inventory" class="tray-grid"></div>
-          </div>
-        </div>
       </section>
 
       <!-- View: Tier List -->
+
+      <!-- View: Tier List -->
       <section id="tier-list" class="view-container">
-        <div class="flex justify-between items-center mb-8">
-           <div class="flex gap-4 items-center">
-              <h2 class="text-2xl font-black">Tier List Editor</h2>
-              <select onchange="applyTierPreset(this.value)">
-                <option value="">テンプレートを選択...</option>
-                <option value="s-c">S-C (4段)</option>
-                <option value="s-d">S-D (5段)</option>
-                <option value="simple">3段階</option>
-              </select>
-           </div>
-           <div class="flex items-center gap-4 bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm">
-             <span class="text-[10px] font-black text-slate-400 uppercase">サイズ</span>
-             <input type="range" min="40" max="120" value="84" style="width: 120px;" oninput="updateIconSize(this.value)">
-           </div>
+        <div class="flex items-center justify-between mb-8">
+          <h2 class="text-2xl font-black">Tier List</h2>
+          <div class="flex gap-4">
+            <button class="btn btn-ghost" onclick="applyTierPreset('s-c')">S-C</button>
+            <button class="btn btn-ghost" onclick="applyTierPreset('s-d')">S-D</button>
+            <button class="btn btn-ghost" onclick="applyTierPreset('simple')">Simple</button>
+          </div>
         </div>
 
         <div id="tier-capture-area">
@@ -176,6 +154,36 @@
           <div id="plot-inventory" class="tray-grid"></div>
         </div>
       </section>
+
+      <!-- Global Inventory Tray (Persistent at bottom) -->
+      <div class="global-inventory-tray">
+        <div class="max-w-[1400px] mx-auto px-10 py-10">
+          <div class="inventory-container">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="text-xl font-black">Inventory Tray</h3>
+              <div class="flex items-center gap-6">
+                <div class="flex items-center gap-4 bg-white px-4 py-2 rounded-xl border border-slate-100">
+                  <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Global Icon Size</span>
+                  <input type="range" min="40" max="150" value="84" class="w-40" oninput="updateIconSize(this.value)">
+                </div>
+                <label class="btn btn-ghost text-xs cursor-pointer">
+                  画像をアップロード
+                  <input type="file" id="custom-upload" hidden accept="image/*" onchange="handleCustomUpload(this)">
+                </label>
+                <button class="btn btn-ghost text-xs text-rose-500" onclick="clearInventory()">Clear All</button>
+              </div>
+            </div>
+            
+            <div class="tray-wrapper">
+              <!-- 各ビューで使い分けていたIDを統合、または複数配置に対応 -->
+              <div class="tray-tabs flex gap-4 mb-4 border-b border-slate-200">
+                <div class="px-4 py-2 text-sm font-bold border-b-2 border-primary text-primary">Master Tray</div>
+              </div>
+              <div id="icon-inventory" class="tray-grid"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 

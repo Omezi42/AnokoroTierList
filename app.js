@@ -35,7 +35,7 @@ let state = {
   ],
   iconSize: 84,
   dragGrabOffset: { x: 0, y: 0 },
-  currentMousePos: { x: 0, y: 0 } // グローバルでマウス位置を追跡
+  lastPos: { x: 0, y: 0 } 
 };
 
 // --- Initialization ---
@@ -49,11 +49,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   setupPlotterLabels();
   await checkSharedId();
   
-  // マウス位置の常時監視
-  window.addEventListener('mousemove', (e) => {
-    state.currentMousePos.x = e.clientX;
-    state.currentMousePos.y = e.clientY;
-  });
+  const track = (e) => {
+    state.lastPos.x = e.clientX || (e.touches && e.touches[0].clientX);
+    state.lastPos.y = e.clientY || (e.touches && e.touches[0].clientY);
+  };
+  window.addEventListener('mousemove', track, true);
+  window.addEventListener('touchmove', track, true);
 
   document.getElementById('save-btn').onclick = saveToFirebase;
 
@@ -88,6 +89,10 @@ function setupNav() {
       document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
       document.getElementById(viewId).classList.add('active');
       document.getElementById('current-view-name').innerText = btn.innerText.trim();
+      
+      // タブ切り替え時にインベントリのSortable設定を更新する必要がある場合があるため、再セットアップ
+      if (viewId === 'tier-list') renderTierList();
+      if (viewId === 'plotter') setupPlotter();
     };
   });
 }
@@ -177,38 +182,38 @@ function addIconToInventory() {
 }
 
 function renderInventory() {
-  const containers = ['icon-inventory', 'tier-inventory', 'matchup-inventory', 'plot-inventory'];
-  containers.forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.innerHTML = '';
-    state.inventory.forEach(item => {
-      const wrap = document.createElement('div');
-      wrap.className = 'relative group';
-      const img = document.createElement('img');
-      img.src = item.dataUrl;
-      img.className = 'tray-icon-img';
-      img.style.width = `${state.iconSize}px`;
-      img.style.height = `${state.iconSize}px`;
-      
-      const del = document.createElement('button');
-      del.innerHTML = '×';
-      del.className = 'inventory-delete-btn';
-      del.onmousedown = (e) => e.stopPropagation();
-      del.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        deleteIcon(item.id);
-      };
-      
-      if (id === 'matchup-inventory') {
-        img.onclick = () => addToMatchup(item.id);
-      }
-      
-      wrap.appendChild(img);
-      wrap.appendChild(del);
-      el.appendChild(wrap);
-    });
+  const el = document.getElementById('icon-inventory');
+  if (!el) return;
+  el.innerHTML = '';
+  state.inventory.forEach(item => {
+    const wrap = document.createElement('div');
+    wrap.className = 'relative group';
+    const img = document.createElement('img');
+    img.src = item.dataUrl;
+    img.className = 'tray-icon-img';
+    
+    const del = document.createElement('button');
+    del.innerHTML = '×';
+    del.className = 'inventory-delete-btn';
+    del.onmousedown = (e) => e.stopPropagation();
+    del.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      deleteIcon(item.id);
+    };
+    
+    // 現在のアクティブなビューに応じて、トレイ上のクリック挙動を変える（相性表など）
+    const activeView = document.querySelector('.view-container.active');
+    if (activeView && activeView.id === 'matchup') {
+      img.onclick = () => addToMatchup(item.id);
+      img.style.cursor = 'pointer';
+    } else {
+      img.style.cursor = 'grab';
+    }
+    
+    wrap.appendChild(img);
+    wrap.appendChild(del);
+    el.appendChild(wrap);
   });
 }
 
@@ -243,13 +248,14 @@ function clearInventory() {
 }
 
 function updateIconSize(size) {
-  state.iconSize = size;
-  renderInventory();
+  state.iconSize = parseInt(size);
+  document.documentElement.style.setProperty('--icon-size', `${size}px`);
 }
 
 // --- Tier List ---
 function renderTierList() {
   const container = document.getElementById('tier-rows-container');
+  if (!container) return;
   container.innerHTML = '';
   state.tiers.forEach((tier, idx) => {
     const row = document.createElement('div');
@@ -284,7 +290,11 @@ function renderTierList() {
       }
     });
   });
-  new Sortable(document.getElementById('tier-inventory'), { group: { name: 'shared', pull: 'clone', put: false }, animation: 200, sort: false });
+  
+  const inventoryEl = document.getElementById('icon-inventory');
+  if (inventoryEl) {
+    new Sortable(inventoryEl, { group: { name: 'shared', pull: 'clone', put: false }, animation: 200, sort: false });
+  }
 }
 
 function applyTierPreset(type) {
@@ -340,7 +350,7 @@ function addToMatchup(id) {
   th.dataset.colId = colId;
   th.innerHTML = `
     <div class="cell-content group">
-      <img src="${icon.dataUrl}" style="width: 56px; height: 56px; border-radius: 10px; box-shadow: var(--shadow-sm);">
+      <img src="${icon.dataUrl}" style="width: var(--icon-size); height: var(--icon-size); border-radius: 10px; box-shadow: var(--shadow-sm);">
       <button class="inventory-delete-btn" onclick="deleteMatchupCol('${colId}')">×</button>
     </div>
   `;
@@ -352,7 +362,7 @@ function addToMatchup(id) {
   tr.innerHTML = `
     <td class="relative">
       <div class="cell-content group">
-        <img src="${icon.dataUrl}" style="width: 56px; height: 56px; border-radius: 10px; box-shadow: var(--shadow-sm);">
+        <img src="${icon.dataUrl}" style="width: var(--icon-size); height: var(--icon-size); border-radius: 10px; box-shadow: var(--shadow-sm);">
         <button class="inventory-delete-btn" onclick="deleteMatchupRow('${tr.id}')">×</button>
       </div>
     </td>
@@ -389,30 +399,25 @@ function deleteMatchupCol(colId) {
 // --- Plotter ---
 function setupPlotter() {
   const area = document.getElementById('plot-area');
-  const inventoryEl = document.getElementById('plot-inventory');
+  const inventoryEl = document.getElementById('icon-inventory');
+  if (!area || !inventoryEl) return;
   
   new Sortable(inventoryEl, {
     group: { name: 'plot', pull: 'clone', put: false },
     onStart: (e) => {
-      // 重要: ドラッグ開始時の「生の」マウス位置とアイコンの位置からオフセットを計算
       const rect = e.item.getBoundingClientRect();
-      const mouseX = state.currentMousePos.x;
-      const mouseY = state.currentMousePos.y;
-      state.dragGrabOffset.x = mouseX - rect.left;
-      state.dragGrabOffset.y = mouseY - rect.top;
+      state.dragGrabOffset.x = state.lastPos.x - rect.left;
+      state.dragGrabOffset.y = state.lastPos.y - rect.top;
     },
     onEnd: (e) => {
       const r = area.getBoundingClientRect();
-      // 配置時も「生の」マウス位置を使用
-      const mouseX = state.currentMousePos.x;
-      const mouseY = state.currentMousePos.y;
+      const x = state.lastPos.x - r.left;
+      const y = state.lastPos.y - r.top;
       
-      const x = mouseX - r.left;
-      const y = mouseY - r.top;
-      
-      if (x > 0 && y > 0 && x < r.width && y < r.height) {
-        const imgSrc = e.item.querySelector('img').src;
-        createPlotItem(imgSrc, x, y);
+      if (state.lastPos.x > r.left - 50 && state.lastPos.x < r.right + 50 && 
+          state.lastPos.y > r.top - 50 && state.lastPos.y < r.bottom + 50) {
+        const img = e.item.querySelector('img');
+        if (img) createPlotItem(img.src, x, y);
       }
     }
   });
@@ -421,11 +426,11 @@ function setupPlotter() {
 function createPlotItem(src, x, y) {
   const el = document.createElement('div');
   el.className = 'plot-item group';
-  // 記録したオフセットを正確に差し引く
   el.style.left = `${x - state.dragGrabOffset.x}px`;
   el.style.top = `${y - state.dragGrabOffset.y}px`;
+  
   el.innerHTML = `
-    <img src="${src}" style="width: 64px; height: 64px; border-radius: 10px;">
+    <img src="${src}">
     <button class="inventory-delete-btn">×</button>
   `;
   
@@ -438,13 +443,23 @@ function createPlotItem(src, x, y) {
   el.onmousedown = (e) => {
     if (e.target === del) return;
     e.preventDefault();
-    let sx = e.clientX - el.offsetLeft;
-    let sy = e.clientY - el.offsetTop;
-    document.onmousemove = (e) => {
-      el.style.left = `${e.clientX - sx}px`;
-      el.style.top = `${e.clientY - sy}px`;
+    const rect = el.getBoundingClientRect();
+    const ox = e.clientX - rect.left;
+    const oy = e.clientY - rect.top;
+    
+    const move = (me) => {
+      const areaRect = document.getElementById('plot-area').getBoundingClientRect();
+      el.style.left = `${me.clientX - areaRect.left - ox}px`;
+      el.style.top = `${me.clientY - areaRect.top - oy}px`;
     };
-    document.onmouseup = () => document.onmousemove = null;
+    
+    const stop = () => {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', stop);
+    };
+    
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', stop);
   };
   
   document.getElementById('plot-area').appendChild(el);
@@ -453,6 +468,7 @@ function createPlotItem(src, x, y) {
 function setupPlotterLabels() {
   const x = document.getElementById('axis-x-label');
   const y = document.getElementById('axis-y-label');
+  if (!x || !y) return;
   const update = () => {
     document.getElementById('label-top').innerText = `${y.value} (+)`;
     document.getElementById('label-bottom').innerText = `${y.value} (-)`;

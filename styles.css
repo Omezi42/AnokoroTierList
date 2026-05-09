@@ -14,6 +14,7 @@
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+  --icon-size: 84px; /* Global icon size variable */
 }
 
 * {
@@ -329,8 +330,8 @@ select:focus { box-shadow: 0 0 0 4px var(--primary-glow); border-color: var(--pr
 }
 
 .tray-icon-img {
-  width: 84px;
-  height: 84px;
+  width: var(--icon-size);
+  height: var(--icon-size);
   border-radius: var(--radius-md);
   object-fit: cover;
   cursor: grab;
@@ -470,11 +471,20 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
 
 .plot-item {
   position: absolute;
+  width: var(--icon-size);
+  height: var(--icon-size);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   cursor: move;
   transition: transform 0.1s;
   z-index: 20;
+}
+
+.plot-item img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 .plot-item:hover { transform: scale(1.1); z-index: 30; }
