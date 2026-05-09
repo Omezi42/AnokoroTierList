@@ -1,13 +1,136 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Anokoro Tier List Maker</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anokoro Tier List Pro</title>
+  <!-- SEO & Social Sharing -->
+  <meta name="description" content="あの頃の自作TCG用Tier表・相性表作成ツール">
+  <meta property="og:title" content="Anokoro Tier Pro">
+  <meta property="og:description" content="デッキのTier表や相性表を簡単に作成・共有できます。">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <!-- SortableJS for Drag and Drop -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+</head>
+<body>
+  <nav>
+    <div class="logo">Anokoro Tier Pro</div>
+    <div class="nav-links">
+      <button class="nav-btn active" onclick="switchView('icon-maker')">Icon Maker</button>
+      <button class="nav-btn" onclick="switchView('tier-list')">Tier List</button>
+      <button class="nav-btn" onclick="switchView('matchup')">Matchup</button>
+      <button class="nav-btn" onclick="switchView('plotter')">Plotter</button>
+    </div>
+    <div class="nav-actions">
+      <button class="btn-primary" id="save-btn">Save & Share</button>
+    </div>
+  </nav>
+
+  <main>
+    <!-- Icon Maker View -->
+    <section id="icon-maker" class="view-container active">
+      <div class="icon-maker-grid">
+        <div class="glass p-6">
+          <h2 class="text-xl font-bold mb-4">1. 背景カードを選択</h2>
+          <input type="text" id="bg-search" placeholder="カード名を検索..." class="w-full mb-4">
+          <div id="bg-results" class="search-results"></div>
+        </div>
+        <div class="glass p-6">
+          <h2 class="text-xl font-bold mb-4">2. サブカードを選択</h2>
+          <input type="text" id="sub-search" placeholder="カード名を検索..." class="w-full mb-4">
+          <div id="sub-results" class="search-results"></div>
+        </div>
+        <div class="preview-area">
+          <h2 class="text-xl font-bold">Preview</h2>
+          <canvas id="icon-canvas" width="512" height="512"></canvas>
+          <div class="flex gap-4">
+            <button class="btn-primary" onclick="addIconToInventory()">庫に追加</button>
+            <button class="btn-primary" style="background: var(--text-muted);" onclick="downloadIcon()">DL</button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="glass p-6 mt-8">
+        <h2 class="text-xl font-bold mb-4">作成済みアイコン</h2>
+        <div id="icon-inventory" class="flex flex-wrap gap-4">
+          <!-- Generated icons will appear here -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Tier List View -->
+    <section id="tier-list" class="view-container">
+      <div class="glass p-8">
+        <div id="tier-rows-container">
+          <!-- Tier rows will be generated here -->
+        </div>
+        <div class="mt-6 flex gap-4">
+          <button class="btn-primary" onclick="addTierRow()">行を追加</button>
+          <div id="tier-inventory" class="glass p-4 flex-1 flex flex-wrap gap-2 min-h-[100px]">
+            <!-- Icons for dragging -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Matchup View -->
+    <section id="matchup" class="view-container">
+      <div class="glass p-8 overflow-x-auto">
+        <h2 class="text-2xl font-bold mb-6">相性表 (Matchup Chart)</h2>
+        <table class="matrix-table" id="matchup-table">
+          <thead>
+            <tr id="matchup-header">
+              <th>デッキ</th>
+              <!-- Icons will be added here -->
+            </tr>
+          </thead>
+          <tbody id="matchup-body">
+            <!-- Rows will be added here -->
+          </tbody>
+        </table>
+        <div class="mt-6">
+          <p class="text-muted">※アイコンをインベントリから追加してください</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Plotter View -->
+    <section id="plotter" class="view-container">
+      <div class="glass p-8">
+        <div class="flex justify-between mb-4">
+          <input type="text" id="axis-y-label" value="速度" class="text-center w-32">
+          <input type="text" id="axis-x-label" value="安定感" class="text-center w-32">
+        </div>
+        <div class="plot-area" id="plot-area">
+          <div class="axis-x"></div>
+          <div class="axis-y"></div>
+          <!-- Icons will be placed here -->
+        </div>
+        <div class="mt-6">
+           <div id="plot-inventory" class="glass p-4 flex flex-wrap gap-2 min-h-[100px]">
+            <!-- Icons for dragging -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Discord Integration Info -->
+    <section class="glass p-6 mt-12">
+      <h2 class="text-xl font-bold mb-4">Discord 連携</h2>
+      <p class="text-muted mb-4">作成したチャートを保存して発行されるURLを、AnokoroDiscordBotがいるチャンネルに貼り付けることで、ボットがプレビューを生成します。</p>
+      <div class="flex gap-4">
+        <input type="text" id="discord-webhook" placeholder="Discord Webhook URL (任意)" class="flex-1">
+        <button class="btn-primary" onclick="sendToDiscord()">Discordへ送信</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Firebase Scripts -->
+  <script type="module" src="app.js"></script>
+</body>
 </html>
