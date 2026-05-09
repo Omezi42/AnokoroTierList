@@ -33,7 +33,7 @@ let state = {
     { id: 't3', name: 'B', color: '#ffff7f' },
     { id: 't4', name: 'C', color: '#7fff7f' }
   ],
-  lastSavedId: null
+  iconSize: 64,
 };
 
 // --- Initialization ---
@@ -44,6 +44,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   renderTierList();
   setupSearch();
   setupPlotter();
+  setupPlotterLabels();
   await checkSharedId();
   
   document.getElementById('save-btn').onclick = saveToFirebase;
@@ -60,20 +61,22 @@ window.addEventListener('DOMContentLoaded', async () => {
   window.updateTierColor = updateTierColor;
   window.updateTierName = updateTierName;
   window.exportAsImage = exportAsImage;
+  window.clearTierRow = clearTierRow;
+  window.updateIconSize = updateIconSize;
+  window.handleCustomUpload = handleCustomUpload;
+  window.applyTierPreset = applyTierPreset;
 });
 
 function setupNav() {
-  const btns = document.querySelectorAll('.nav-btn');
+  const btns = document.querySelectorAll('.side-btn');
   btns.forEach(btn => {
     btn.onclick = () => {
       const viewId = btn.getAttribute('data-view');
-      // Update buttons
       btns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      // Update views
       document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
       document.getElementById(viewId).classList.add('active');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      document.getElementById('current-view-name').innerText = btn.innerText.trim();
     };
   });
 }
@@ -85,9 +88,7 @@ async function fetchCardNames() {
     state.cardNames = text.split('\n').filter(n => n.trim());
     renderSearchResults('bg', state.cardNames);
     renderSearchResults('sub', state.cardNames);
-  } catch (e) {
-    console.error("Data fetch error", e);
-  }
+  } catch (e) { console.error(e); }
 }
 
 function setupSearch() {
@@ -98,13 +99,14 @@ function setupSearch() {
 function renderSearchResults(type, names) {
   const container = document.getElementById(`${type}-results`);
   container.innerHTML = '';
-  names.slice(0, 30).forEach(name => {
+  names.forEach(name => {
     const img = document.createElement('img');
     const encodedName = encodeURIComponent(name).replace(/\(/g, '%28').replace(/\)/g, '%29');
     const baseUrl = type === 'bg' ? CROPPED_IMAGE_BASE_URL : TRANSPARENT_IMAGE_BASE_URL;
     img.src = `${baseUrl}/${encodedName}${IMAGE_SUFFIX}`;
-    img.className = 'card-thumb';
+    img.className = 'search-img-item';
     img.crossOrigin = "Anonymous";
+    img.loading = "lazy"; // Add lazy loading
     img.onclick = () => {
       container.querySelectorAll('img').forEach(i => i.classList.remove('selected'));
       img.classList.add('selected');
@@ -160,7 +162,7 @@ function addIconToInventory() {
   state.inventory.unshift({ id: 'icon_' + Date.now(), dataUrl });
   localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
   renderInventory();
-  showToast("インベントリに追加しました");
+  showToast("追加しました");
 }
 
 function renderInventory() {
@@ -170,15 +172,26 @@ function renderInventory() {
     if (!el) return;
     el.innerHTML = '';
     state.inventory.forEach(item => {
+      const wrap = document.createElement('div');
+      wrap.className = 'relative group';
       const img = document.createElement('img');
       img.src = item.dataUrl;
-      img.className = 'icon-item';
+      img.className = 'tray-icon-img';
+      img.style.width = `${state.iconSize}px`;
+      img.style.height = `${state.iconSize}px`;
+      
       if (id === 'icon-inventory') {
-        img.onclick = () => { if(confirm("削除しますか？")) deleteIcon(item.id); };
+        const del = document.createElement('button');
+        del.innerHTML = '×';
+        del.className = 'absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white rounded-full hidden group-hover:flex items-center justify-center text-[10px] font-bold shadow-lg';
+        del.onclick = () => deleteIcon(item.id);
+        wrap.appendChild(del);
       } else if (id === 'matchup-inventory') {
         img.onclick = () => addToMatchup(item.id);
       }
-      el.appendChild(img);
+      
+      wrap.appendChild(img);
+      el.appendChild(wrap);
     });
   });
 }
@@ -189,12 +202,31 @@ function deleteIcon(id) {
   renderInventory();
 }
 
+function handleCustomUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+    state.inventory.unshift({ id: 'icon_custom_' + Date.now(), dataUrl });
+    localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
+    renderInventory();
+    showToast("アップロード完了");
+  };
+  reader.readAsDataURL(file);
+}
+
 function clearInventory() {
   if (confirm("インベントリをクリアしますか？")) {
     state.inventory = [];
     localStorage.removeItem('anokoro_inventory');
     renderInventory();
   }
+}
+
+function updateIconSize(size) {
+  state.iconSize = size;
+  renderInventory();
 }
 
 // --- Tier List ---
@@ -205,26 +237,53 @@ function renderTierList() {
     const row = document.createElement('div');
     row.className = 'tier-row';
     row.innerHTML = `
-      <div class="tier-label" style="background: ${tier.color}">
-        <span contenteditable="true" onblur="updateTierName(${idx}, this.innerText)">${tier.name}</span>
-        <div class="absolute top-0 right-0 flex flex-col scale-75 opacity-0 hover:opacity-100 transition-opacity">
-           <button class="bg-black/10 hover:bg-black/20 px-1" onclick="moveTier(${idx}, -1)">▲</button>
-           <button class="bg-black/10 hover:bg-black/20 px-1" onclick="deleteTier(${idx})">×</button>
-           <button class="bg-black/10 hover:bg-black/20 px-1" onclick="moveTier(${idx}, 1)">▼</button>
-           <input type="color" value="${tier.color}" class="w-4 h-4 p-0 border-none" onchange="updateTierColor(${idx}, this.value)">
+      <div class="tier-label-cell" style="background: ${tier.color}">
+        <div class="tier-actions">
+          <button class="action-btn" onclick="moveTier(${idx}, -1)">▲</button>
+          <button class="action-btn" onclick="clearTierRow('${tier.id}')">CLR</button>
+          <button class="action-btn" onclick="deleteTier(${idx})">×</button>
+          <button class="action-btn" onclick="moveTier(${idx}, 1)">▼</button>
+          <input type="color" value="${tier.color}" onchange="updateTierColor(${idx}, this.value)">
         </div>
+        <div class="tier-name-input" contenteditable="true" onblur="updateTierName(${idx}, this.innerText)">${tier.name}</div>
       </div>
-      <div class="tier-items" data-id="${tier.id}"></div>
+      <div class="tier-items-cell" data-id="${tier.id}"></div>
     `;
     container.appendChild(row);
-    new Sortable(row.querySelector('.tier-items'), { group: 'shared', animation: 150 });
+    new Sortable(row.querySelector('.tier-items-cell'), { group: 'shared', animation: 200, ghostClass: 'opacity-30' });
   });
-  new Sortable(document.getElementById('tier-inventory'), { group: { name: 'shared', pull: 'clone', put: false }, animation: 150, sort: false });
+  new Sortable(document.getElementById('tier-inventory'), { group: { name: 'shared', pull: 'clone', put: false }, animation: 200, sort: false });
+}
+
+function applyTierPreset(type) {
+  if (type === 's-c') {
+    state.tiers = [
+      { id: 't1', name: 'S', color: '#ff7f7f' },
+      { id: 't2', name: 'A', color: '#ffbf7f' },
+      { id: 't3', name: 'B', color: '#ffff7f' },
+      { id: 't4', name: 'C', color: '#7fff7f' }
+    ];
+  } else if (type === 's-d') {
+    state.tiers = [
+      { id: 't1', name: 'S', color: '#ff7f7f' },
+      { id: 't2', name: 'A', color: '#ffbf7f' },
+      { id: 't3', name: 'B', color: '#ffff7f' },
+      { id: 't4', name: 'C', color: '#7fff7f' },
+      { id: 't5', name: 'D', color: '#7f7fff' }
+    ];
+  } else if (type === 'simple') {
+    state.tiers = [
+      { id: 't1', name: '上', color: '#ff7f7f' },
+      { id: 't2', name: '中', color: '#ffff7f' },
+      { id: 't3', name: '下', color: '#7fff7f' }
+    ];
+  }
+  renderTierList();
 }
 
 function updateTierName(idx, name) { state.tiers[idx].name = name; }
 function updateTierColor(idx, color) { state.tiers[idx].color = color; renderTierList(); }
-function addTierRow() { state.tiers.push({ id: 't'+Date.now(), name: 'New', color: '#f1f5f9' }); renderTierList(); }
+function addTierRow() { state.tiers.push({ id: 't'+Date.now(), name: 'New', color: '#f8fafc' }); renderTierList(); }
 function moveTier(idx, dir) {
   const to = idx + dir;
   if (to < 0 || to >= state.tiers.length) return;
@@ -234,6 +293,10 @@ function moveTier(idx, dir) {
   renderTierList();
 }
 function deleteTier(idx) { if (confirm("削除しますか？")) { state.tiers.splice(idx, 1); renderTierList(); } }
+function clearTierRow(id) {
+  const el = document.querySelector(`.tier-items-cell[data-id="${id}"]`);
+  if (el) el.innerHTML = '';
+}
 
 // --- Matchup ---
 function addToMatchup(id) {
@@ -241,21 +304,30 @@ function addToMatchup(id) {
   if (!icon) return;
   const header = document.getElementById('matchup-header');
   const th = document.createElement('th');
-  th.innerHTML = `<img src="${icon.dataUrl}" class="w-10 h-10 mx-auto">`;
+  th.style.padding = '12px';
+  th.innerHTML = `<img src="${icon.dataUrl}" style="width: 56px; height: 56px; border-radius: 10px; box-shadow: var(--shadow-sm);">`;
   header.appendChild(th);
+  
   const body = document.getElementById('matchup-body');
   const tr = document.createElement('tr');
-  tr.innerHTML = `<td><img src="${icon.dataUrl}" class="w-10 h-10 mx-auto"></td>`;
+  tr.style.borderBottom = '1px solid #f1f5f9';
+  tr.innerHTML = `<td style="padding: 12px; background: #f8fafc; border-right: 1px solid #f1f5f9;"><img src="${icon.dataUrl}" style="width: 56px; height: 56px; border-radius: 10px; box-shadow: var(--shadow-sm);"></td>`;
+  
   const cols = header.cells.length - 1;
   for (let i = 0; i < cols; i++) {
     const td = document.createElement('td');
+    td.style.padding = '12px';
+    td.style.textAlign = 'center';
     td.innerHTML = `<select><option>±0</option><option>+1</option><option>-1</option><option>+2</option><option>-2</option></select>`;
     tr.appendChild(td);
   }
   body.appendChild(tr);
+  
   Array.from(body.rows).forEach((row, idx) => {
     if (idx === body.rows.length - 1) return;
     const td = document.createElement('td');
+    td.style.padding = '12px';
+    td.style.textAlign = 'center';
     td.innerHTML = `<select><option>±0</option><option>+1</option><option>-1</option><option>+2</option><option>-2</option></select>`;
     row.appendChild(td);
   });
@@ -278,9 +350,11 @@ function setupPlotter() {
 function createPlotItem(src, x, y) {
   const el = document.createElement('img');
   el.src = src;
-  el.className = 'absolute w-12 h-12 rounded shadow-sm cursor-move';
-  el.style.left = `${x - 24}px`;
-  el.style.top = `${y - 24}px`;
+  el.className = 'absolute rounded-xl shadow-lg cursor-move transition-transform hover:scale-110';
+  el.style.width = '64px';
+  el.style.height = '64px';
+  el.style.left = `${x - 32}px`;
+  el.style.top = `${y - 32}px`;
   el.onmousedown = (e) => {
     let sx = e.clientX - el.offsetLeft;
     let sy = e.clientY - el.offsetTop;
@@ -288,6 +362,19 @@ function createPlotItem(src, x, y) {
     document.onmouseup = () => document.onmousemove = null;
   };
   document.getElementById('plot-area').appendChild(el);
+}
+
+function setupPlotterLabels() {
+  const x = document.getElementById('axis-x-label');
+  const y = document.getElementById('axis-y-label');
+  const update = () => {
+    document.getElementById('label-top').innerText = `${y.value} (+)`;
+    document.getElementById('label-bottom').innerText = `${y.value} (-)`;
+    document.getElementById('label-right').innerText = `${x.value} (+)`;
+    document.getElementById('label-left').innerText = `${x.value} (-)`;
+  };
+  x.oninput = update;
+  y.oninput = update;
 }
 
 // --- Firebase & Export ---
@@ -298,34 +385,38 @@ async function saveToFirebase() {
     const ref = await addDoc(collection(db, "charts"), { inventory: state.inventory, timestamp: Date.now() });
     const url = `${window.location.origin}${window.location.pathname}?id=${ref.id}`;
     navigator.clipboard.writeText(url);
-    alert("保存完了！URLをコピーしました。\n" + url);
-  } catch (e) { alert("失敗"); } finally { btn.innerText = '保存'; }
+    alert("クラウドに保存しました！URLをコピーしました。");
+  } catch (e) { alert("失敗"); } finally { btn.innerText = 'クラウド保存'; }
 }
 
 async function checkSharedId() {
   const id = new URLSearchParams(window.location.search).get('id');
   if (id) {
     const snap = await getDoc(doc(db, "charts", id));
-    if (snap.exists()) { state.inventory = snap.data().inventory; renderInventory(); showToast("ロード完了"); }
+    if (snap.exists()) {
+      state.inventory = snap.data().inventory;
+      renderInventory();
+      showToast("データを読み込みました");
+    }
   }
 }
 
 async function exportAsImage() {
   const view = document.querySelector('.view-container.active');
   const area = view.querySelector('[id$="-capture-area"]') || view;
-  const canvas = await html2canvas(area, { scale: 2, useCORS: true });
+  const canvas = await html2canvas(area, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
   const l = document.createElement('a');
-  l.download = 'chart.png';
+  l.download = `anokoro_pro_${Date.now()}.png`;
   l.href = canvas.toDataURL();
   l.click();
 }
 
 function showToast(m) {
   const t = document.createElement('div');
-  t.className = 'fixed bottom-4 right-4 bg-slate-800 text-white px-4 py-2 rounded shadow-lg z-[2000]';
+  t.className = 'fixed bottom-10 right-10 bg-slate-900 text-white px-8 py-4 rounded-3xl shadow-lg z-[2000] pop-in';
   t.innerText = m;
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2000);
+  setTimeout(() => t.remove(), 3000);
 }
 
 function downloadIcon() {
