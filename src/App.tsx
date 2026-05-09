@@ -63,6 +63,8 @@ function App() {
     ))
   }
 
+  const handleShare = async () => {
+    const id = Math.random().toString(36).substring(2, 12)
     // const data = {
     //   decks,
     //   tierRows,
@@ -228,7 +230,6 @@ function App() {
                     positions={graphPositions} 
                     xAxisLabel={graphLabels.x} 
                     yAxisLabel={graphLabels.y}
-                    onPositionChange={(id, pos) => setGraphPositions(prev => ({ ...prev, [id]: pos }))}
                     onLabelsChange={(x, y) => setGraphLabels({ x, y })}
                   />
                 </div>
