@@ -33,7 +33,7 @@ function App() {
     { id: 'c', label: 'C', color: '#7fff7f', deckIds: [] },
   ])
   const [matchups, setMatchups] = useState<Record<string, Record<string, any>>>({})
-  const [graphPositions, setGraphPositions] = useState<Record<string, any>>({})
+  const [graphPositions] = useState<Record<string, any>>({})
   const [graphLabels, setGraphLabels] = useState({ x: '速度', y: '安定感' })
 
   // Load data from URL if ID exists
@@ -125,16 +125,17 @@ function App() {
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 {deckIds.map(id => (
-                  <motion.div 
-                    layout
+                  <div 
                     key={id}
                     draggable
                     onDragStart={(e: React.DragEvent) => e.dataTransfer.setData('deckId', id)}
                     className="relative group cursor-grab active:cursor-grabbing"
                   >
-                    <DeckIcon bgCard={decks[id].bgCard} subCard={decks[id].subCard} size="md" className="w-full h-auto aspect-square rounded-2xl" />
-                    <div className="absolute inset-0 bg-indigo-500/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl border border-indigo-500/50" />
-                  </motion.div>
+                    <motion.div layout>
+                      <DeckIcon bgCard={decks[id].bgCard} subCard={decks[id].subCard} size="md" className="w-full h-auto aspect-square rounded-2xl" />
+                      <div className="absolute inset-0 bg-indigo-500/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl border border-indigo-500/50" />
+                    </motion.div>
+                  </div>
                 ))}
               </div>
             )}
