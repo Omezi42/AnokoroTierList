@@ -355,68 +355,105 @@ function clearTierRow(id) {
 function addToMatchup(id) {
   const icon = state.inventory.find(i => i.id === id);
   if (!icon) return;
-  const colId = 'matchup-col-' + Date.now();
+  
   const header = document.getElementById('matchup-header');
+  const body = document.getElementById('matchup-body');
+  
+  // Totalヘッダーの確保
+  if (!header.querySelector('.score-header')) {
+    const scoreTh = document.createElement('th');
+    scoreTh.className = 'score-header';
+    scoreTh.innerText = 'Total';
+    header.appendChild(scoreTh);
+  }
+
+  const nextIdx = body.rows.length; // 新しいデッキのインデックス
+  
+  // 1. ヘッダーに新しいデッキの列を追加（Totalの前）
   const th = document.createElement('th');
-  th.dataset.colId = colId;
+  th.dataset.colIdx = nextIdx;
   th.innerHTML = `
     <div class="cell-content group">
       <img src="${icon.dataUrl}" style="width: var(--icon-size); height: var(--icon-size); border-radius: 10px; box-shadow: var(--shadow-sm);">
-      <button class="inventory-delete-btn" onclick="deleteMatchupCol('${colId}')">×</button>
     </div>
   `;
-  header.appendChild(th);
-  
-  const body = document.getElementById('matchup-body');
+  header.insertBefore(th, header.querySelector('.score-header'));
+
+  // 2. 新しい行を作成
   const tr = document.createElement('tr');
-  tr.id = 'matchup-row-' + Date.now();
+  tr.dataset.rowIdx = nextIdx;
   tr.innerHTML = `
-    <td class="relative">
+    <td>
       <div class="cell-content group">
         <img src="${icon.dataUrl}" style="width: var(--icon-size); height: var(--icon-size); border-radius: 10px; box-shadow: var(--shadow-sm);">
-        <button class="inventory-delete-btn" onclick="deleteMatchupRow('${tr.id}')">×</button>
+        <button class="inventory-delete-btn" onclick="deleteMatchupRow(this)">×</button>
       </div>
     </td>
   `;
   
   const options = ['+4','+3','+2','+1','±0','-1','-2','-3','-4'];
   const optionsHtml = options.map(o => `<option value="${o}" ${o === '±0' ? 'selected' : ''}>${o}</option>`).join('');
-  
-  const cols = header.cells.length - 2; // -1 (デッキ名) -1 (Score)
-  for (let i = 0; i < cols; i++) {
+
+  // 3. 既存の行すべてに新しい列セルを追加（Totalの前）
+  Array.from(body.rows).forEach((row, rIdx) => {
     const td = document.createElement('td');
-    td.innerHTML = `<div class="cell-content"><select onchange="updateMatchupColor(this)" class="match-zero">${optionsHtml}</select></div>`;
+    td.innerHTML = `<div class="cell-content"><select data-row="${rIdx}" data-col="${nextIdx}" onchange="updateMatchupColor(this)" class="match-zero">${optionsHtml}</select></div>`;
+    row.insertBefore(td, row.querySelector('.matchup-score-cell'));
+  });
+
+  // 4. 新しい行にセルを追加
+  for (let cIdx = 0; cIdx <= nextIdx; cIdx++) {
+    const td = document.createElement('td');
+    if (cIdx === nextIdx) {
+      // 対角線セル
+      td.className = 'matchup-diagonal';
+      td.innerHTML = `<div class="cell-content"><select data-row="${nextIdx}" data-col="${cIdx}" class="match-zero" disabled style="opacity:0; pointer-events:none;"><option value="±0">±0</option></select></div>`;
+    } else {
+      td.innerHTML = `<div class="cell-content"><select data-row="${nextIdx}" data-col="${cIdx}" onchange="updateMatchupColor(this)" class="match-zero">${optionsHtml}</select></div>`;
+    }
     tr.appendChild(td);
   }
-  
+
+  // 5. 新しい行にScoreセルを追加
   const scoreTd = document.createElement('td');
   scoreTd.className = 'matchup-score-cell';
   scoreTd.innerText = '0';
   tr.appendChild(scoreTd);
+
   body.appendChild(tr);
-  
-  Array.from(body.rows).forEach((row, idx) => {
-    if (idx === body.rows.length - 1) return;
-    const td = document.createElement('td');
-    td.innerHTML = `<div class="cell-content"><select onchange="updateMatchupColor(this)" class="match-zero">${optionsHtml}</select></div>`;
-    row.insertBefore(td, row.querySelector('.matchup-score-cell'));
-  });
 }
 
-window.updateMatchupColor = function(select) {
+window.updateMatchupColor = function(select, isMirror = false) {
   const val = select.value;
+  const rowIdx = select.dataset.row;
+  const colIdx = select.dataset.col;
+
   select.classList.remove('match-plus-4', 'match-plus-3', 'match-plus-2', 'match-plus-1', 'match-zero', 'match-minus-1', 'match-minus-2', 'match-minus-3', 'match-minus-4');
   
-  if (val.includes('+')) {
-    const num = val.replace('+', '');
-    select.classList.add(`match-plus-${num}`);
-  } else if (val.includes('-')) {
-    const num = val.replace('-', '');
-    select.classList.add(`match-minus-${num}`);
-  } else {
-    select.classList.add('match-zero');
+  if (val.includes('+')) select.classList.add(`match-plus-${val.replace('+', '')}`);
+  else if (val.includes('-')) select.classList.add(`match-minus-${val.replace('-', '')}`);
+  else select.classList.add('match-zero');
+
+  // 自動反転ロジック
+  if (!isMirror) {
+    const mirrorSelect = document.querySelector(`select[data-row="${colIdx}"][data-col="${rowIdx}"]`);
+    if (mirrorSelect) {
+      let mirrorVal = '±0';
+      if (val.includes('+')) mirrorVal = '-' + val.replace('+', '');
+      else if (val.includes('-')) mirrorVal = '+' + val.replace('-', '');
+      
+      mirrorSelect.value = mirrorVal;
+      updateMatchupColor(mirrorSelect, true); // ミラー側も色更新（再帰防止フラグ付）
+    }
   }
+
+  // 行スコアの更新
   calculateRowScore(select.closest('tr'));
+  // ミラー側の行スコアも更新が必要
+  if (!isMirror) {
+    const mirrorRow = document.querySelector(`tr[data-row-idx="${colIdx}"]`);
+    if (mirrorRow) calculateRowScore(mirrorRow);
+  }
 };
 
 function calculateRowScore(row) {
@@ -432,22 +469,32 @@ function calculateRowScore(row) {
   if (scoreCell) {
     scoreCell.innerText = (total > 0 ? '+' : '') + total;
     scoreCell.style.color = total > 0 ? '#10b981' : (total < 0 ? '#f43f5e' : '#94a3b8');
-    scoreCell.style.fontWeight = '900';
-    scoreCell.style.fontSize = '1.2rem';
   }
 }
 
-function deleteMatchupRow(id) { if (confirm("この行を削除しますか？")) document.getElementById(id).remove(); }
-function deleteMatchupCol(colId) {
-  if (!confirm("この列を削除しますか？")) return;
-  const header = document.getElementById('matchup-header');
-  const index = Array.from(header.cells).findIndex(cell => cell.dataset.colId === colId);
-  if (index !== -1) {
-    header.deleteCell(index);
+function deleteMatchupRow(btn) {
+  if (confirm("このデッキを削除しますか？（行と列が削除されます）")) {
+    const row = btn.closest('tr');
+    const idx = row.dataset.rowIdx;
+    
+    // 行を削除
+    row.remove();
+    
+    // 対応する列（ヘッダーと各行のセル）を削除
+    const header = document.getElementById('matchup-header');
+    const th = header.querySelector(`th[data-col-idx="${idx}"]`);
+    if (th) th.remove();
+    
     const body = document.getElementById('matchup-body');
-    Array.from(body.rows).forEach(row => row.deleteCell(index));
+    Array.from(body.rows).forEach(r => {
+      const td = r.querySelector(`select[data-col="${idx}"]`)?.closest('td');
+      if (td) td.remove();
+      calculateRowScore(r);
+    });
   }
 }
+
+function deleteMatchupCol() { /* デッキ削除で一括処理するため不要 */ }
 
 // --- Plotter ---
 function addToPlotter(id) {
@@ -455,11 +502,8 @@ function addToPlotter(id) {
   if (!icon) return;
   const area = document.getElementById('plot-area');
   const r = area.getBoundingClientRect();
-  
-  // 重なり防止：中心から±20pxのランダムな位置に配置
   const jitterX = (Math.random() - 0.5) * 40;
   const jitterY = (Math.random() - 0.5) * 40;
-  
   createPlotItem(icon.dataUrl, (r.width / 2) + jitterX, (r.height / 2) + jitterY);
 }
 
@@ -484,23 +528,16 @@ function createPlotItem(src, x, y) {
   el.onmousedown = (e) => {
     if (e.target === del) return;
     e.preventDefault();
-    
-    // ドラッグ中の演出制御
     el.style.transition = 'none';
     el.style.zIndex = '100';
-    
-    // 掴んだ瞬間のマウス位置と要素の現在位置を記録
     const startX = e.clientX;
     const startY = e.clientY;
     const startL = parseInt(el.style.left) || 0;
     const startT = parseInt(el.style.top) || 0;
     
     const move = (me) => {
-      // マウスが動いた距離（デルタ）を計算
       const dx = me.clientX - startX;
       const dy = me.clientY - startY;
-      
-      // 元の位置にデルタを加算（配置時のずらしが維持される）
       el.style.left = `${startL + dx}px`;
       el.style.top = `${startT + dy}px`;
     };
@@ -511,11 +548,9 @@ function createPlotItem(src, x, y) {
       document.removeEventListener('mousemove', move);
       document.removeEventListener('mouseup', stop);
     };
-    
     document.addEventListener('mousemove', move);
     document.addEventListener('mouseup', stop);
   };
-  
   document.getElementById('plot-area').appendChild(el);
 }
 

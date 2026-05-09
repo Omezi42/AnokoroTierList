@@ -405,6 +405,23 @@ select:focus { box-shadow: 0 0 0 4px var(--primary-glow); border-color: var(--pr
   position: relative;
 }
 
+.matchup-table th, .matchup-table td {
+  border: 1px solid #f1f5f9;
+  min-width: 80px;
+}
+
+.matchup-score-cell {
+  background: #f8fafc;
+  text-align: center;
+  border-left: 2px solid #e2e8f0 !important;
+}
+
+/* Diagonal cell style */
+.matchup-diagonal {
+  background: linear-gradient(to top right, transparent 48%, #cbd5e1 48%, #cbd5e1 52%, transparent 52%) !important;
+  background-color: #f1f5f9 !important;
+}
+
 .matchup-table select {
   width: 100%;
   padding: 6px 4px;
