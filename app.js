@@ -34,6 +34,8 @@ let state = {
     { id: 't4', name: 'C', color: '#7fff7f' }
   ],
   iconSize: 84,
+  dragGrabOffset: { x: 0, y: 0 },
+  currentMousePos: { x: 0, y: 0 } // グローバルでマウス位置を追跡
 };
 
 // --- Initialization ---
@@ -47,6 +49,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   setupPlotterLabels();
   await checkSharedId();
   
+  // マウス位置の常時監視
+  window.addEventListener('mousemove', (e) => {
+    state.currentMousePos.x = e.clientX;
+    state.currentMousePos.y = e.clientY;
+  });
+
   document.getElementById('save-btn').onclick = saveToFirebase;
 
   // Global exports
@@ -190,11 +198,7 @@ function renderInventory() {
       del.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (id === 'icon-inventory') {
-          deleteIcon(item.id);
-        } else {
-          wrap.remove();
-        }
+        deleteIcon(item.id);
       };
       
       if (id === 'matchup-inventory') {
@@ -209,7 +213,7 @@ function renderInventory() {
 }
 
 function deleteIcon(id) {
-  if (confirm("インベントリから完全に削除しますか？\n(このデッキデータは失われます)")) {
+  if (confirm("インベントリから完全に削除しますか？\n(配置済みのデータには影響しません)")) {
     state.inventory = state.inventory.filter(i => i.id !== id);
     localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
     renderInventory();
@@ -385,13 +389,26 @@ function deleteMatchupCol(colId) {
 // --- Plotter ---
 function setupPlotter() {
   const area = document.getElementById('plot-area');
-  new Sortable(document.getElementById('plot-inventory'), {
+  const inventoryEl = document.getElementById('plot-inventory');
+  
+  new Sortable(inventoryEl, {
     group: { name: 'plot', pull: 'clone', put: false },
+    onStart: (e) => {
+      // 重要: ドラッグ開始時の「生の」マウス位置とアイコンの位置からオフセットを計算
+      const rect = e.item.getBoundingClientRect();
+      const mouseX = state.currentMousePos.x;
+      const mouseY = state.currentMousePos.y;
+      state.dragGrabOffset.x = mouseX - rect.left;
+      state.dragGrabOffset.y = mouseY - rect.top;
+    },
     onEnd: (e) => {
       const r = area.getBoundingClientRect();
-      // Calculate viewport coordinates correctly
-      const x = (e.originalEvent.clientX || e.originalEvent.touches[0].clientX) - r.left;
-      const y = (e.originalEvent.clientY || e.originalEvent.touches[0].clientY) - r.top;
+      // 配置時も「生の」マウス位置を使用
+      const mouseX = state.currentMousePos.x;
+      const mouseY = state.currentMousePos.y;
+      
+      const x = mouseX - r.left;
+      const y = mouseY - r.top;
       
       if (x > 0 && y > 0 && x < r.width && y < r.height) {
         const imgSrc = e.item.querySelector('img').src;
@@ -404,9 +421,9 @@ function setupPlotter() {
 function createPlotItem(src, x, y) {
   const el = document.createElement('div');
   el.className = 'plot-item group';
-  // Offset by half the icon size (64/2 = 32)
-  el.style.left = `${x - 32}px`;
-  el.style.top = `${y - 32}px`;
+  // 記録したオフセットを正確に差し引く
+  el.style.left = `${x - state.dragGrabOffset.x}px`;
+  el.style.top = `${y - state.dragGrabOffset.y}px`;
   el.innerHTML = `
     <img src="${src}" style="width: 64px; height: 64px; border-radius: 10px;">
     <button class="inventory-delete-btn">×</button>
