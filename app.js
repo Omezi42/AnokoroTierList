@@ -33,7 +33,7 @@ let state = {
     { id: 't3', name: 'B', color: '#ffff7f' },
     { id: 't4', name: 'C', color: '#7fff7f' }
   ],
-  iconSize: 84, // Increased from 64
+  iconSize: 84,
 };
 
 // --- Initialization ---
@@ -186,28 +186,35 @@ function renderInventory() {
       const del = document.createElement('button');
       del.innerHTML = '×';
       del.className = 'inventory-delete-btn';
-      del.onmousedown = (e) => e.stopPropagation(); // Prevent drag start
+      del.onmousedown = (e) => e.stopPropagation();
       del.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        deleteIcon(item.id);
+        if (id === 'icon-inventory') {
+          deleteIcon(item.id);
+        } else {
+          wrap.remove();
+        }
       };
-      wrap.appendChild(del);
       
       if (id === 'matchup-inventory') {
         img.onclick = () => addToMatchup(item.id);
       }
       
       wrap.appendChild(img);
+      wrap.appendChild(del);
       el.appendChild(wrap);
     });
   });
 }
 
 function deleteIcon(id) {
-  state.inventory = state.inventory.filter(i => i.id !== id);
-  localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
-  renderInventory();
+  if (confirm("インベントリから完全に削除しますか？\n(このデッキデータは失われます)")) {
+    state.inventory = state.inventory.filter(i => i.id !== id);
+    localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
+    renderInventory();
+    showToast("削除しました");
+  }
 }
 
 function handleCustomUpload(input) {
@@ -262,14 +269,13 @@ function renderTierList() {
       animation: 200, 
       ghostClass: 'opacity-30',
       onAdd: (evt) => {
-        // Add delete button to dropped item
         const item = evt.item;
-        if (!item.querySelector('.inventory-delete-btn')) {
-          const del = document.createElement('button');
-          del.innerHTML = '×';
-          del.className = 'inventory-delete-btn';
-          del.onclick = () => item.remove();
-          item.appendChild(del);
+        const del = item.querySelector('.inventory-delete-btn');
+        if (del) {
+          del.onclick = (e) => {
+            e.stopPropagation();
+            item.remove();
+          };
         }
       }
     });
@@ -327,32 +333,31 @@ function addToMatchup(id) {
   const colId = 'matchup-col-' + Date.now();
   const header = document.getElementById('matchup-header');
   const th = document.createElement('th');
-  th.style.padding = '12px';
-  th.className = 'relative group';
   th.dataset.colId = colId;
   th.innerHTML = `
-    <img src="${icon.dataUrl}" style="width: 56px; height: 56px; border-radius: 10px; box-shadow: var(--shadow-sm);">
-    <button class="inventory-delete-btn" onclick="deleteMatchupCol('${colId}')">×</button>
+    <div class="cell-content group">
+      <img src="${icon.dataUrl}" style="width: 56px; height: 56px; border-radius: 10px; box-shadow: var(--shadow-sm);">
+      <button class="inventory-delete-btn" onclick="deleteMatchupCol('${colId}')">×</button>
+    </div>
   `;
   header.appendChild(th);
   
   const body = document.getElementById('matchup-body');
   const tr = document.createElement('tr');
-  tr.style.borderBottom = '1px solid #f1f5f9';
   tr.id = 'matchup-row-' + Date.now();
   tr.innerHTML = `
-    <td style="padding: 12px; background: #f8fafc; border-right: 1px solid #f1f5f9;" class="relative group">
-      <img src="${icon.dataUrl}" style="width: 56px; height: 56px; border-radius: 10px; box-shadow: var(--shadow-sm);">
-      <button class="inventory-delete-btn" onclick="deleteMatchupRow('${tr.id}')">×</button>
+    <td class="relative">
+      <div class="cell-content group">
+        <img src="${icon.dataUrl}" style="width: 56px; height: 56px; border-radius: 10px; box-shadow: var(--shadow-sm);">
+        <button class="inventory-delete-btn" onclick="deleteMatchupRow('${tr.id}')">×</button>
+      </div>
     </td>
   `;
   
   const cols = header.cells.length - 1;
   for (let i = 0; i < cols; i++) {
     const td = document.createElement('td');
-    td.style.padding = '12px';
-    td.style.textAlign = 'center';
-    td.innerHTML = `<select><option>±0</option><option>+1</option><option>-1</option><option>+2</option><option>-2</option></select>`;
+    td.innerHTML = `<div class="cell-content"><select><option>±0</option><option>+1</option><option>-1</option><option>+2</option><option>-2</option></select></div>`;
     tr.appendChild(td);
   }
   body.appendChild(tr);
@@ -360,9 +365,7 @@ function addToMatchup(id) {
   Array.from(body.rows).forEach((row, idx) => {
     if (idx === body.rows.length - 1) return;
     const td = document.createElement('td');
-    td.style.padding = '12px';
-    td.style.textAlign = 'center';
-    td.innerHTML = `<select><option>±0</option><option>+1</option><option>-1</option><option>+2</option><option>-2</option></select>`;
+    td.innerHTML = `<div class="cell-content"><select><option>±0</option><option>+1</option><option>-1</option><option>+2</option><option>-2</option></select></div>`;
     row.appendChild(td);
   });
 }
@@ -386,8 +389,10 @@ function setupPlotter() {
     group: { name: 'plot', pull: 'clone', put: false },
     onEnd: (e) => {
       const r = area.getBoundingClientRect();
-      const x = e.originalEvent.clientX - r.left;
-      const y = e.originalEvent.clientY - r.top;
+      // Calculate viewport coordinates correctly
+      const x = (e.originalEvent.clientX || e.originalEvent.touches[0].clientX) - r.left;
+      const y = (e.originalEvent.clientY || e.originalEvent.touches[0].clientY) - r.top;
+      
       if (x > 0 && y > 0 && x < r.width && y < r.height) {
         const imgSrc = e.item.querySelector('img').src;
         createPlotItem(imgSrc, x, y);
@@ -397,15 +402,24 @@ function setupPlotter() {
 }
 
 function createPlotItem(src, x, y) {
-  const el = document.createElement('img');
-  el.src = src;
-  el.className = 'plot-item';
-  el.style.width = '64px';
-  el.style.height = '64px';
+  const el = document.createElement('div');
+  el.className = 'plot-item group';
+  // Offset by half the icon size (64/2 = 32)
   el.style.left = `${x - 32}px`;
   el.style.top = `${y - 32}px`;
+  el.innerHTML = `
+    <img src="${src}" style="width: 64px; height: 64px; border-radius: 10px;">
+    <button class="inventory-delete-btn">×</button>
+  `;
+  
+  const del = el.querySelector('button');
+  del.onclick = (e) => {
+    e.stopPropagation();
+    el.remove();
+  };
   
   el.onmousedown = (e) => {
+    if (e.target === del) return;
     e.preventDefault();
     let sx = e.clientX - el.offsetLeft;
     let sy = e.clientY - el.offsetTop;
@@ -414,11 +428,6 @@ function createPlotItem(src, x, y) {
       el.style.top = `${e.clientY - sy}px`;
     };
     document.onmouseup = () => document.onmousemove = null;
-  };
-  
-  el.oncontextmenu = (e) => {
-    e.preventDefault();
-    if (confirm("削除しますか？")) el.remove();
   };
   
   document.getElementById('plot-area').appendChild(el);

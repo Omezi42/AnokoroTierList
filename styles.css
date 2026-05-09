@@ -179,29 +179,57 @@ select:focus { box-shadow: 0 0 0 4px var(--primary-glow); border-color: var(--pr
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
+/* 削除ボタンの完全な再定義 */
 .inventory-delete-btn {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 22px;
-  height: 22px;
-  background: #f43f5e;
-  color: white;
-  border: 2px solid white;
-  border-radius: 50%;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 900;
-  cursor: pointer;
-  box-shadow: var(--shadow-md);
-  transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  z-index: 10;
+  position: absolute !important;
+  top: -10px !important;
+  right: -10px !important;
+  width: 26px !important;
+  height: 26px !important;
+  background: #f43f5e !important;
+  color: white !important;
+  border: 2px solid white !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
+  z-index: 9999 !important;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  pointer-events: auto !important;
 }
 
-.group:hover .inventory-delete-btn { display: flex; }
-.inventory-delete-btn:hover { background: #e11d48; transform: scale(1.2); }
+.group {
+  position: relative !important;
+  display: inline-flex !important;
+  padding: 5px; /* マージンを確保してボタンが切れないようにする */
+}
+
+.group:hover .inventory-delete-btn {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: scale(1.1);
+}
+
+/* Distribution/Plotter Items should also follow this */
+.plot-item .inventory-delete-btn {
+  opacity: 0;
+  visibility: hidden;
+}
+.plot-item:hover .inventory-delete-btn {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.inventory-delete-btn:hover {
+  background: #e11d48 !important;
+  transform: scale(1.25) !important;
+}
 
 /* Dashboard Components */
 .card-glass {
@@ -222,7 +250,7 @@ select:focus { box-shadow: 0 0 0 4px var(--primary-glow); border-color: var(--pr
   border-radius: var(--radius-lg);
   margin-bottom: 12px;
   min-height: 110px;
-  overflow: hidden;
+  overflow: visible !important; /* ボタンが切れないように */
 }
 
 .tier-label-cell {
@@ -278,6 +306,7 @@ select:focus { box-shadow: 0 0 0 4px var(--primary-glow); border-color: var(--pr
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  overflow: visible !important;
 }
 
 /* Inventory Tray */
@@ -290,17 +319,18 @@ select:focus { box-shadow: 0 0 0 4px var(--primary-glow); border-color: var(--pr
   border-radius: var(--radius-xl);
   padding: 2.5rem;
   border: 1px solid var(--border);
+  overflow: visible !important;
 }
 
 .tray-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 20px; /* 余白を広げてボタンが重ならないように */
 }
 
 .tray-icon-img {
-  width: 64px;
-  height: 64px;
+  width: 84px;
+  height: 84px;
   border-radius: var(--radius-md);
   object-fit: cover;
   cursor: grab;
@@ -308,7 +338,7 @@ select:focus { box-shadow: 0 0 0 4px var(--primary-glow); border-color: var(--pr
   transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.tray-icon-img:hover { transform: scale(1.1) rotate(2deg); box-shadow: var(--shadow-lg); }
+.tray-icon-img:hover { transform: scale(1.05); box-shadow: var(--shadow-lg); }
 
 /* Buttons */
 .btn {
@@ -329,6 +359,31 @@ select:focus { box-shadow: 0 0 0 4px var(--primary-glow); border-color: var(--pr
 
 .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
 .btn-ghost:hover { background: #f8fafc; color: var(--text-main); border-color: var(--border-active); }
+
+/* Matchup Table Refinement */
+.matchup-table th, .matchup-table td {
+  padding: 16px !important;
+  border: 1px solid #f1f5f9;
+  /* Use flex for perfect centering */
+  display: table-cell;
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+.matchup-table .cell-content {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.matchup-table select {
+  width: 100%;
+  max-width: 80px;
+  text-align: center;
+}
 
 /* Search & Results */
 .search-results-box {
