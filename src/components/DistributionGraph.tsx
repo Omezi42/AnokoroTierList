@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { DeckIcon as DeckIconComponent } from './DeckIcon';
 import { motion } from 'framer-motion';
 
@@ -13,7 +13,6 @@ interface DistributionGraphProps {
   positions: Record<string, Position>;
   xAxisLabel: string;
   yAxisLabel: string;
-  onPositionChange: (id: string, pos: Position) => void;
   onLabelsChange: (x: string, y: string) => void;
 }
 
@@ -23,16 +22,8 @@ export const DistributionGraph: React.FC<DistributionGraphProps> = ({
   positions, 
   xAxisLabel, 
   yAxisLabel,
-  onPositionChange,
   onLabelsChange
 }) => {
-  const [isDragging, setIsDragging] = useState<string | null>(null);
-
-  const handleDrag = (id: string, e: React.MouseEvent | React.TouchEvent) => {
-    // Basic drag logic (simplified for this component)
-    // In a real app, I'd use a library or a hook
-  };
-
   return (
     <div className="flex flex-col gap-6">
       <div className="flex gap-4">
@@ -88,7 +79,7 @@ export const DistributionGraph: React.FC<DistributionGraphProps> = ({
                   top: `${100 - pos.y}%`,
                   transform: 'translate(-50%, -50%)' 
                 }}
-                onDragEnd={(_, info) => {
+                onDragEnd={() => {
                   // Simplified coordinate conversion logic would go here
                 }}
               >

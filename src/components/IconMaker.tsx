@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, X, Check } from 'lucide-react';
+import { Search, Check } from 'lucide-react';
 import { fetchCardNames, getImagePath } from '../lib/cards';
 import { DeckIcon } from './DeckIcon';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface IconMakerProps {
   onAdd: (deck: { bgCard: string, subCard: string }) => void;

@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Plus, Share2, BarChart3, Grid3X3, Layers, Trash2, X } from 'lucide-react'
+import { Plus, Share2, BarChart3, Grid3X3, Layers } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { IconMaker } from './components/IconMaker'
 import { TierRow } from './components/TierRow'
 import { MatchupChart } from './components/MatchupChart'
 import { DistributionGraph } from './components/DistributionGraph'
 import { DeckIcon } from './components/DeckIcon'
-import { db } from './lib/firebase'
-import { doc, getDoc, setDoc, collection } from 'firebase/firestore'
 
 type Tab = 'tier' | 'matchup' | 'graph'
 
@@ -65,15 +63,13 @@ function App() {
     ))
   }
 
-  const handleShare = async () => {
-    const id = Math.random().toString(36).substring(2, 12)
-    const data = {
-      decks,
-      tierRows,
-      matchups,
-      graphPositions,
-      graphLabels
-    }
+    // const data = {
+    //   decks,
+    //   tierRows,
+    //   matchups,
+    //   graphPositions,
+    //   graphLabels
+    // }
     // Save to Firestore logic here
     alert(`共有リンクを作成しました (ID: ${id})`)
   }
@@ -131,7 +127,7 @@ function App() {
                     layout
                     key={id}
                     draggable
-                    onDragStart={(e) => e.dataTransfer.setData('deckId', id)}
+                    onDragStart={(e: React.DragEvent) => e.dataTransfer.setData('deckId', id)}
                     className="relative group cursor-grab active:cursor-grabbing"
                   >
                     <DeckIcon bgCard={decks[id].bgCard} subCard={decks[id].subCard} size="md" className="w-full h-auto aspect-square rounded-2xl" />
@@ -184,7 +180,7 @@ function App() {
                       <div 
                         key={row.id}
                         onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
+                        onDrop={(e: React.DragEvent) => {
                           const deckId = e.dataTransfer.getData('deckId')
                           if (deckId) addDeckToTier(row.id, deckId)
                         }}

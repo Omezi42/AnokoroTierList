@@ -1,6 +1,6 @@
 import React from 'react';
 import { DeckIcon } from './DeckIcon';
-import { motion } from 'framer-motion';
+
 
 type MatchupType = 'win' | 'small-win' | 'even' | 'small-lose' | 'lose';
 

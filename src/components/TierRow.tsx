@@ -1,6 +1,6 @@
 import React from 'react';
 import { DeckIcon } from './DeckIcon';
-import { Plus, Trash2, GripVertical } from 'lucide-react';
+
 import { motion } from 'framer-motion';
 
 interface TierRowProps {
