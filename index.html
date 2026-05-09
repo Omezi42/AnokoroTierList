@@ -4,183 +4,164 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Anokoro Tier Pro</title>
-  <meta name="description" content="あの頃の自作TCG用Tier表・相性表作成ツール">
-  <meta property="og:title" content="Anokoro Tier Pro">
-  <meta property="og:description" content="デッキのTier表や相性表を簡単に作成・共有できます。">
-  <meta property="og:type" content="website">
+  
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+  
   <link rel="stylesheet" href="styles.css">
+  
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 </head>
 <body>
   <nav>
-    <div class="logo">Anokoro Tier Pro</div>
+    <div class="logo-container">
+      <div class="logo-icon">A</div>
+      <div class="logo-text">AnokoroTierPro</div>
+    </div>
+    
     <div class="nav-links">
-      <button class="nav-btn active" data-view="icon-maker">アイコン作成</button>
+      <button class="nav-btn active" data-view="icon-maker">作成</button>
       <button class="nav-btn" data-view="tier-list">Tier表</button>
       <button class="nav-btn" data-view="matchup">相性表</button>
       <button class="nav-btn" data-view="plotter">分布図</button>
     </div>
-    <div class="nav-actions">
-      <button class="btn-primary" id="save-btn">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-        保存・共有
-      </button>
+    
+    <div class="flex gap-2">
+      <button class="btn btn-secondary" onclick="exportAsImage()">画像保存</button>
+      <button class="btn btn-primary" id="save-btn">保存</button>
     </div>
   </nav>
 
   <main>
-    <!-- Icon Maker View -->
+    <!-- View: Icon Maker -->
     <section id="icon-maker" class="view-container active">
-      <header class="mb-8">
-        <h1 class="text-3xl font-black mb-2">アイコンジェネレーター</h1>
-        <p class="text-muted">カードを組み合わせて、Tier表用のアイコンを作成しましょう。</p>
+      <header>
+        <h1>アイコン生成</h1>
+        <p class="text-muted">カードを組み合わせてデッキアイコンを作成します。</p>
       </header>
       
-      <div class="icon-maker-grid">
-        <div class="glass p-6">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-bold">1. 背景カード</h2>
-            <span class="text-xs bg-indigo-100 text-indigo-600 px-2 py-1 rounded-full font-bold">CROPPED</span>
+      <div class="maker-grid">
+        <div class="search-col">
+          <h3 class="mb-4">背景を選択</h3>
+          <input type="text" id="bg-search" placeholder="検索...">
+          <div class="scroll-box mt-4">
+            <div id="bg-results" class="card-grid"></div>
           </div>
-          <input type="text" id="bg-search" placeholder="カード名を検索..." class="mb-4">
-          <div id="bg-results" class="search-results"></div>
         </div>
-        
-        <div class="glass p-6">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-bold">2. サブカード</h2>
-            <span class="text-xs bg-pink-100 text-pink-600 px-2 py-1 rounded-full font-bold">TRANSPARENT</span>
+
+        <div class="search-col">
+          <h3 class="mb-4">サブカードを選択</h3>
+          <input type="text" id="sub-search" placeholder="検索...">
+          <div class="scroll-box mt-4">
+            <div id="sub-results" class="card-grid"></div>
           </div>
-          <input type="text" id="sub-search" placeholder="カード名を検索..." class="mb-4">
-          <div id="sub-results" class="search-results"></div>
         </div>
-        
-        <div class="preview-card">
-          <div class="glass p-6 sticky top-24">
-            <h2 class="text-xl font-bold mb-4">プレビュー</h2>
-            <canvas id="icon-canvas" width="512" height="512" class="mb-6"></canvas>
-            <div class="flex flex-col gap-3">
-              <button class="btn-primary w-full" onclick="addIconToInventory()">
-                インベントリに追加
-              </button>
-              <button class="btn-secondary w-full" onclick="downloadIcon()">
-                画像を保存
-              </button>
+
+        <div class="preview-col">
+          <div class="sticky-preview">
+            <h3 class="mb-4">プレビュー</h3>
+            <canvas id="icon-canvas" width="512" height="512" class="mb-4"></canvas>
+            <div class="flex flex-col gap-2">
+              <button class="btn btn-primary w-full" onclick="addIconToInventory()">インベントリに追加</button>
+              <button class="btn btn-secondary w-full" onclick="downloadIcon()">画像をダウンロード</button>
             </div>
           </div>
         </div>
       </div>
-      
-      <div class="glass p-8 mt-12">
-        <h2 class="text-2xl font-bold mb-6">作成済みアイコン</h2>
-        <div id="icon-inventory" class="inventory-grid">
-          <!-- Icons added here -->
-          <div class="text-muted w-full text-center py-8">アイコンがまだありません。上のツールで作成してください。</div>
+
+      <div class="mt-12">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold">インベントリ</h2>
+          <button class="btn btn-secondary text-xs" onclick="clearInventory()">クリア</button>
         </div>
+        <div id="icon-inventory" class="inventory-tray"></div>
       </div>
     </section>
 
-    <!-- Tier List View -->
+    <!-- View: Tier List -->
     <section id="tier-list" class="view-container">
-      <header class="mb-8">
-        <h1 class="text-3xl font-black mb-2">Tierリスト</h1>
-        <p class="text-muted">アイコンをドラッグしてランク付けを行いましょう。</p>
+      <header>
+        <h1>Tier表</h1>
+        <p class="text-muted">アイコンをドラッグして配置します。</p>
       </header>
       
-      <div class="glass p-8">
-        <div id="tier-rows-container">
-          <!-- Tier rows -->
+      <div id="tier-capture-area">
+        <div id="tier-rows-container" class="tier-list"></div>
+      </div>
+
+      <div class="mt-8 grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div>
+          <button class="btn btn-secondary w-full" onclick="addTierRow()">+ 行を追加</button>
         </div>
-        <div class="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div class="md:col-span-1">
-            <button class="btn-secondary w-full mb-4" onclick="addTierRow()">+ 行を追加</button>
-            <div class="bg-blue-50 p-4 rounded-xl text-sm text-blue-700">
-              <p>💡 インベントリからアイコンをドラッグして各Tierに配置できます。</p>
-            </div>
-          </div>
-          <div class="md:col-span-3">
-            <div id="tier-inventory" class="inventory-grid">
-              <!-- Icons for dragging -->
-            </div>
-          </div>
+        <div class="md:col-span-3">
+          <h4 class="mb-4 text-muted uppercase text-xs font-bold">アイコン</h4>
+          <div id="tier-inventory" class="inventory-tray"></div>
         </div>
       </div>
     </section>
 
-    <!-- Matchup View -->
+    <!-- View: Matchup -->
     <section id="matchup" class="view-container">
-      <header class="mb-8">
-        <h1 class="text-3xl font-black mb-2">相性表</h1>
-        <p class="text-muted">デッキごとの有利・不利を一覧で管理できます。</p>
+      <header>
+        <h1>相性表</h1>
+        <p class="text-muted">アイコンをクリックして追加します。</p>
       </header>
       
-      <div class="glass p-8">
-        <div class="matrix-container mb-8">
-          <table class="matrix-table" id="matchup-table">
+      <div id="matchup-capture-area">
+        <div class="table-container">
+          <table class="matchup-table" id="matchup-table">
             <thead>
               <tr id="matchup-header">
-                <th class="bg-slate-50 font-bold text-slate-500">デッキ</th>
+                <th>デッキ</th>
               </tr>
             </thead>
-            <tbody id="matchup-body">
-              <!-- Matchup rows -->
-            </tbody>
+            <tbody id="matchup-body"></tbody>
           </table>
         </div>
-        
-        <div class="glass p-6 bg-slate-50">
-          <h3 class="font-bold mb-4">アイコンを追加</h3>
-          <div id="matchup-inventory" class="inventory-grid">
-            <!-- Icons for clicking -->
-          </div>
-        </div>
+      </div>
+
+      <div class="mt-8">
+        <h4 class="mb-4 text-muted uppercase text-xs font-bold">追加するアイコンを選択</h4>
+        <div id="matchup-inventory" class="inventory-tray"></div>
       </div>
     </section>
 
-    <!-- Plotter View -->
+    <!-- View: Plotter -->
     <section id="plotter" class="view-container">
-      <header class="mb-8">
-        <h1 class="text-3xl font-black mb-2">分布図 (2D Graph)</h1>
-        <p class="text-muted">速度や安定感など、任意の軸でデッキを配置します。</p>
+      <header>
+        <h1>分布図</h1>
+        <p class="text-muted">軸を設定してデッキを配置します。</p>
       </header>
       
-      <div class="glass p-8">
-        <div class="flex flex-col md:flex-row justify-between gap-4 mb-6">
+      <div id="plotter-capture-area">
+        <div class="flex gap-8 mb-6">
           <div class="flex items-center gap-2">
-             <span class="font-bold text-muted">縦軸:</span>
-             <input type="text" id="axis-y-label" value="速度" class="w-32">
+            <span class="text-xs font-bold">縦軸:</span>
+            <input type="text" id="axis-y-label" value="速度" style="width: 100px;">
           </div>
           <div class="flex items-center gap-2">
-             <span class="font-bold text-muted">横軸:</span>
-             <input type="text" id="axis-x-label" value="安定感" class="w-32">
+            <span class="text-xs font-bold">横軸:</span>
+            <input type="text" id="axis-x-label" value="安定感" style="width: 100px;">
           </div>
         </div>
         
-        <div class="plot-area mb-8" id="plot-area">
+        <div class="plot-area" id="plot-area">
           <div class="axis-x"></div>
           <div class="axis-y"></div>
-          <span class="axis-label label-top" id="label-top">速度 (+)</span>
-          <span class="axis-label label-bottom" id="label-bottom">速度 (-)</span>
-          <span class="axis-label label-right" id="label-right">安定感 (+)</span>
-          <span class="axis-label label-left" id="label-left">安定感 (-)</span>
-          <!-- Icons placed here -->
         </div>
-        
-        <div class="glass p-6 bg-slate-50">
-          <h3 class="font-bold mb-4">アイコンを配置</h3>
-          <div id="plot-inventory" class="inventory-grid">
-            <!-- Icons for dragging -->
-          </div>
-        </div>
+      </div>
+
+      <div class="mt-8">
+        <h4 class="mb-4 text-muted uppercase text-xs font-bold">インベントリ</h4>
+        <div id="plot-inventory" class="inventory-tray"></div>
       </div>
     </section>
   </main>
 
-  <footer class="text-center py-12 text-muted border-t border-slate-200 mt-20">
-    <p>&copy; 2026 Anokoro Tier Pro | あの頃の自作TCGツール</p>
+  <footer class="text-center py-12 border-t mt-20 text-muted text-sm">
+    <p>&copy; 2026 Anokoro Tier Pro</p>
   </footer>
 
   <script type="module" src="app.js"></script>

@@ -28,34 +28,55 @@ let state = {
   selectedSub: null,
   inventory: JSON.parse(localStorage.getItem('anokoro_inventory') || '[]'),
   tiers: [
-    { name: 'S', color: '#ff7f7f' },
-    { name: 'A', color: '#ffbf7f' },
-    { name: 'B', color: '#ffff7f' },
-    { name: 'C', color: '#7fff7f' }
+    { id: 't1', name: 'S', color: '#ff7f7f' },
+    { id: 't2', name: 'A', color: '#ffbf7f' },
+    { id: 't3', name: 'B', color: '#ffff7f' },
+    { id: 't4', name: 'C', color: '#7fff7f' }
   ],
   lastSavedId: null
 };
 
 // --- Initialization ---
 window.addEventListener('DOMContentLoaded', async () => {
+  setupNav();
   await fetchCardNames();
   renderInventory();
   renderTierList();
   setupSearch();
   setupPlotter();
-  setupNav();
-  setupPlotterLabels();
   await checkSharedId();
   
   document.getElementById('save-btn').onclick = saveToFirebase;
 
-  // Global functions
+  // Global exports
   window.addIconToInventory = addIconToInventory;
   window.downloadIcon = downloadIcon;
   window.addTierRow = addTierRow;
   window.addToMatchup = addToMatchup;
   window.deleteIcon = deleteIcon;
+  window.clearInventory = clearInventory;
+  window.moveTier = moveTier;
+  window.deleteTier = deleteTier;
+  window.updateTierColor = updateTierColor;
+  window.updateTierName = updateTierName;
+  window.exportAsImage = exportAsImage;
 });
+
+function setupNav() {
+  const btns = document.querySelectorAll('.nav-btn');
+  btns.forEach(btn => {
+    btn.onclick = () => {
+      const viewId = btn.getAttribute('data-view');
+      // Update buttons
+      btns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      // Update views
+      document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
+      document.getElementById(viewId).classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+  });
+}
 
 async function fetchCardNames() {
   try {
@@ -65,33 +86,24 @@ async function fetchCardNames() {
     renderSearchResults('bg', state.cardNames);
     renderSearchResults('sub', state.cardNames);
   } catch (e) {
-    console.error("Failed to fetch card names", e);
+    console.error("Data fetch error", e);
   }
 }
 
 function setupSearch() {
-  const bgInput = document.getElementById('bg-search');
-  const subInput = document.getElementById('sub-search');
-  
-  bgInput.oninput = (e) => renderSearchResults('bg', state.cardNames.filter(n => n.includes(e.target.value)));
-  subInput.oninput = (e) => renderSearchResults('sub', state.cardNames.filter(n => n.includes(e.target.value)));
+  document.getElementById('bg-search').oninput = (e) => renderSearchResults('bg', state.cardNames.filter(n => n.includes(e.target.value)));
+  document.getElementById('sub-search').oninput = (e) => renderSearchResults('sub', state.cardNames.filter(n => n.includes(e.target.value)));
 }
 
 function renderSearchResults(type, names) {
   const container = document.getElementById(`${type}-results`);
   container.innerHTML = '';
-  
-  if (names.length === 0) {
-    container.innerHTML = '<div class="col-span-full text-center text-muted py-4">見つかりません</div>';
-    return;
-  }
-
-  names.slice(0, 40).forEach(name => {
+  names.slice(0, 30).forEach(name => {
     const img = document.createElement('img');
     const encodedName = encodeURIComponent(name).replace(/\(/g, '%28').replace(/\)/g, '%29');
     const baseUrl = type === 'bg' ? CROPPED_IMAGE_BASE_URL : TRANSPARENT_IMAGE_BASE_URL;
     img.src = `${baseUrl}/${encodedName}${IMAGE_SUFFIX}`;
-    img.title = name;
+    img.className = 'card-thumb';
     img.crossOrigin = "Anonymous";
     img.onclick = () => {
       container.querySelectorAll('img').forEach(i => i.classList.remove('selected'));
@@ -100,359 +112,226 @@ function renderSearchResults(type, names) {
       else state.selectedSub = img.src;
       updateCanvas();
     };
-    img.onerror = () => { img.style.display = 'none'; };
     container.appendChild(img);
   });
 }
 
-/**
- * AnokoroTierImageMaker の仕様を完全再現したCanvas描画
- */
 function updateCanvas() {
   const canvas = document.getElementById('icon-canvas');
   const ctx = canvas.getContext('2d');
-  const canvasSize = 512;
-  
+  const size = 512;
   ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, canvasSize, canvasSize);
+  ctx.fillRect(0, 0, size, size);
 
-  if (!state.selectedBg) {
-     // 背景がない場合はテキストを表示
-     ctx.fillStyle = "#f1f5f9";
-     ctx.fillRect(0, 0, canvasSize, canvasSize);
-     ctx.fillStyle = "#94a3b8";
-     ctx.font = "bold 24px sans-serif";
-     ctx.textAlign = "center";
-     ctx.fillText("背景を選択してください", canvasSize/2, canvasSize/2);
-     return;
-  }
+  if (!state.selectedBg) return;
 
-  const bgImg = new Image();
-  bgImg.crossOrigin = "Anonymous";
-  bgImg.src = state.selectedBg;
-  bgImg.onload = () => {
-    // 1. 背景描画 (アスペクト比維持してCanvasを埋める)
-    const imgAspect = bgImg.width / bgImg.height;
-    let drawW, drawH, x, y;
-    if (imgAspect > 1) {
-      drawH = canvasSize;
-      drawW = canvasSize * imgAspect;
-      x = (canvasSize - drawW) / 2;
-      y = 0;
-    } else {
-      drawW = canvasSize;
-      drawH = canvasSize / imgAspect;
-      x = 0;
-      y = (canvasSize - drawH) / 2;
-    }
-    ctx.drawImage(bgImg, x, y, drawW, drawH);
+  const bg = new Image();
+  bg.crossOrigin = "Anonymous";
+  bg.src = state.selectedBg;
+  bg.onload = () => {
+    const aspect = bg.width / bg.height;
+    let w, h, x, y;
+    if (aspect > 1) { h = size; w = size * aspect; x = (size - w) / 2; y = 0; }
+    else { w = size; h = size / aspect; x = 0; y = (size - h) / 2; }
+    ctx.drawImage(bg, x, y, w, h);
 
-    // 2. サブカード描画 (右下に重なるように配置)
     if (state.selectedSub) {
-      const subImg = new Image();
-      subImg.crossOrigin = "Anonymous";
-      subImg.src = state.selectedSub;
-      subImg.onload = () => {
-        const maxSubSize = canvasSize * (4 / 5);
-        const subAspect = subImg.width / subImg.height;
-        let subW, subH;
-        
-        if (subAspect > 1) {
-          subW = maxSubSize;
-          subH = maxSubSize / subAspect;
-        } else {
-          subH = maxSubSize;
-          subW = maxSubSize * subAspect;
-        }
-        
-        // オリジナルの配置ロジック
-        const subX = canvasSize - subW * (2 / 3);
-        const subY = canvasSize - subH;
-        
-        ctx.drawImage(subImg, subX, subY, subW, subH);
+      const sub = new Image();
+      sub.crossOrigin = "Anonymous";
+      sub.src = state.selectedSub;
+      sub.onload = () => {
+        const maxSub = size * 0.8;
+        const subAspect = sub.width / sub.height;
+        let sw, sh;
+        if (subAspect > 1) { sw = maxSub; sh = maxSub / subAspect; }
+        else { sh = maxSub; sw = maxSub * subAspect; }
+        const sx = size - sw * (2/3);
+        const sy = size - sh;
+        ctx.drawImage(sub, sx, sy, sw, sh);
       };
     }
   };
 }
 
 function addIconToInventory() {
-  if (!state.selectedBg || !state.selectedSub) {
-    alert("背景とサブカードの両方を選択してください。");
-    return;
-  }
+  if (!state.selectedBg || !state.selectedSub) return;
   const canvas = document.getElementById('icon-canvas');
   const dataUrl = canvas.toDataURL('image/png');
-  const id = 'icon_' + Date.now();
-  state.inventory.unshift({ id, dataUrl }); // 最新を前に
+  state.inventory.unshift({ id: 'icon_' + Date.now(), dataUrl });
   localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
   renderInventory();
-  
-  // UX: 成功フィードバック
-  const btn = event.currentTarget;
-  const originalText = btn.innerText;
-  btn.innerText = "追加しました！";
-  btn.style.background = "#22c55e";
-  setTimeout(() => {
-    btn.innerText = originalText;
-    btn.style.background = "";
-  }, 1000);
+  showToast("インベントリに追加しました");
 }
 
 function renderInventory() {
   const containers = ['icon-inventory', 'tier-inventory', 'matchup-inventory', 'plot-inventory'];
-  containers.forEach(cid => {
-    const container = document.getElementById(cid);
-    if (!container) return;
-    container.innerHTML = '';
-    
-    if (state.inventory.length === 0) {
-       container.innerHTML = '<div class="text-muted w-full text-center py-4">アイコンがありません</div>';
-       return;
-    }
-
+  containers.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = '';
     state.inventory.forEach(item => {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'relative group inline-block';
-      
       const img = document.createElement('img');
       img.src = item.dataUrl;
       img.className = 'icon-item';
-      img.dataset.id = item.id;
-      
-      if (cid === 'icon-inventory') {
-        const delBtn = document.createElement('button');
-        delBtn.innerHTML = '×';
-        delBtn.className = 'absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white rounded-full hidden group-hover:block z-10 font-bold';
-        delBtn.onclick = (e) => {
-          e.stopPropagation();
-          deleteIcon(item.id);
-        };
-        wrapper.appendChild(delBtn);
-      }
-      
-      if (cid === 'matchup-inventory') {
+      if (id === 'icon-inventory') {
+        img.onclick = () => { if(confirm("削除しますか？")) deleteIcon(item.id); };
+      } else if (id === 'matchup-inventory') {
         img.onclick = () => addToMatchup(item.id);
-        img.style.cursor = 'pointer';
-        img.title = "クリックで相性表に追加";
       }
-
-      wrapper.appendChild(img);
-      container.appendChild(wrapper);
+      el.appendChild(img);
     });
   });
 }
 
 function deleteIcon(id) {
-  if (confirm('このアイコンを削除しますか？')) {
-    state.inventory = state.inventory.filter(i => i.id !== id);
-    localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
+  state.inventory = state.inventory.filter(i => i.id !== id);
+  localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
+  renderInventory();
+}
+
+function clearInventory() {
+  if (confirm("インベントリをクリアしますか？")) {
+    state.inventory = [];
+    localStorage.removeItem('anokoro_inventory');
     renderInventory();
   }
 }
 
-// --- Tier List Logic ---
+// --- Tier List ---
 function renderTierList() {
   const container = document.getElementById('tier-rows-container');
   container.innerHTML = '';
-  state.tiers.forEach((tier, index) => {
+  state.tiers.forEach((tier, idx) => {
     const row = document.createElement('div');
     row.className = 'tier-row';
     row.innerHTML = `
-      <div class="tier-label" style="background: ${tier.color}">${tier.name}</div>
-      <div class="tier-content" data-index="${index}"></div>
+      <div class="tier-label" style="background: ${tier.color}">
+        <span contenteditable="true" onblur="updateTierName(${idx}, this.innerText)">${tier.name}</span>
+        <div class="absolute top-0 right-0 flex flex-col scale-75 opacity-0 hover:opacity-100 transition-opacity">
+           <button class="bg-black/10 hover:bg-black/20 px-1" onclick="moveTier(${idx}, -1)">▲</button>
+           <button class="bg-black/10 hover:bg-black/20 px-1" onclick="deleteTier(${idx})">×</button>
+           <button class="bg-black/10 hover:bg-black/20 px-1" onclick="moveTier(${idx}, 1)">▼</button>
+           <input type="color" value="${tier.color}" class="w-4 h-4 p-0 border-none" onchange="updateTierColor(${idx}, this.value)">
+        </div>
+      </div>
+      <div class="tier-items" data-id="${tier.id}"></div>
     `;
     container.appendChild(row);
-    
-    new Sortable(row.querySelector('.tier-content'), {
-      group: 'shared',
-      animation: 150,
-      ghostClass: 'opacity-50'
-    });
+    new Sortable(row.querySelector('.tier-items'), { group: 'shared', animation: 150 });
   });
-  
-  new Sortable(document.getElementById('tier-inventory'), {
-    group: { name: 'shared', pull: 'clone', put: false },
-    animation: 150,
-    sort: false
-  });
+  new Sortable(document.getElementById('tier-inventory'), { group: { name: 'shared', pull: 'clone', put: false }, animation: 150, sort: false });
 }
 
-function addTierRow() {
-  const name = prompt('Tier名', 'New');
-  if (name) {
-    state.tiers.push({ name, color: '#f1f5f9' });
-    renderTierList();
-  }
+function updateTierName(idx, name) { state.tiers[idx].name = name; }
+function updateTierColor(idx, color) { state.tiers[idx].color = color; renderTierList(); }
+function addTierRow() { state.tiers.push({ id: 't'+Date.now(), name: 'New', color: '#f1f5f9' }); renderTierList(); }
+function moveTier(idx, dir) {
+  const to = idx + dir;
+  if (to < 0 || to >= state.tiers.length) return;
+  const t = state.tiers[idx];
+  state.tiers[idx] = state.tiers[to];
+  state.tiers[to] = t;
+  renderTierList();
 }
+function deleteTier(idx) { if (confirm("削除しますか？")) { state.tiers.splice(idx, 1); renderTierList(); } }
 
-// --- Matchup Logic ---
+// --- Matchup ---
 function addToMatchup(id) {
   const icon = state.inventory.find(i => i.id === id);
   if (!icon) return;
-  
   const header = document.getElementById('matchup-header');
-  // 既に存在するかチェック
-  if (Array.from(header.cells).some(cell => cell.querySelector('img')?.src === icon.dataUrl)) return;
-
   const th = document.createElement('th');
-  th.innerHTML = `<img src="${icon.dataUrl}" class="w-12 h-12 mx-auto rounded shadow-sm">`;
+  th.innerHTML = `<img src="${icon.dataUrl}" class="w-10 h-10 mx-auto">`;
   header.appendChild(th);
-  
   const body = document.getElementById('matchup-body');
   const tr = document.createElement('tr');
-  tr.innerHTML = `<td class="bg-slate-50 font-bold"><img src="${icon.dataUrl}" class="w-12 h-12 mx-auto rounded shadow-sm"></td>`;
-  
-  const colCount = header.cells.length - 1;
-  for (let i = 0; i < colCount; i++) {
+  tr.innerHTML = `<td><img src="${icon.dataUrl}" class="w-10 h-10 mx-auto"></td>`;
+  const cols = header.cells.length - 1;
+  for (let i = 0; i < cols; i++) {
     const td = document.createElement('td');
-    td.innerHTML = createMatchupSelect();
+    td.innerHTML = `<select><option>±0</option><option>+1</option><option>-1</option><option>+2</option><option>-2</option></select>`;
     tr.appendChild(td);
   }
   body.appendChild(tr);
-  
-  // 既存の行に新しい列を追加
   Array.from(body.rows).forEach((row, idx) => {
     if (idx === body.rows.length - 1) return;
     const td = document.createElement('td');
-    td.innerHTML = createMatchupSelect();
+    td.innerHTML = `<select><option>±0</option><option>+1</option><option>-1</option><option>+2</option><option>-2</option></select>`;
     row.appendChild(td);
   });
 }
 
-function createMatchupSelect() {
-  return `<select class="matchup-select">
-    <option value="even">±0</option>
-    <option value="win">+1</option>
-    <option value="lose">-1</option>
-    <option value="great-win">+2</option>
-    <option value="great-lose">-2</option>
-  </select>`;
-}
-
-// --- Plotter Logic ---
+// --- Plotter ---
 function setupPlotter() {
-  const plotArea = document.getElementById('plot-area');
-  
+  const area = document.getElementById('plot-area');
   new Sortable(document.getElementById('plot-inventory'), {
     group: { name: 'plot', pull: 'clone', put: false },
-    onEnd: (evt) => {
-      const rect = plotArea.getBoundingClientRect();
-      const x = evt.originalEvent.clientX - rect.left;
-      const y = evt.originalEvent.clientY - rect.top;
-      if (x > 0 && y > 0 && x < rect.width && y < rect.height) {
-        createPlotItem(evt.item.src, x, y);
-      }
+    onEnd: (e) => {
+      const r = area.getBoundingClientRect();
+      const x = e.originalEvent.clientX - r.left;
+      const y = e.originalEvent.clientY - r.top;
+      if (x > 0 && y > 0 && x < r.width && y < r.height) createPlotItem(e.item.src, x, y);
     }
   });
 }
 
 function createPlotItem(src, x, y) {
-  const plotArea = document.getElementById('plot-area');
-  const item = document.createElement('img');
-  item.src = src;
-  item.className = 'absolute w-14 h-14 rounded-lg shadow-lg cursor-move transition-transform hover:scale-125 z-20';
-  item.style.left = `${x - 28}px`;
-  item.style.top = `${y - 28}px`;
-  
-  item.onmousedown = (e) => {
-    let startX = e.clientX - item.offsetLeft;
-    let startY = e.clientY - item.offsetTop;
-    document.onmousemove = (e) => {
-      item.style.left = `${e.clientX - startX}px`;
-      item.style.top = `${e.clientY - startY}px`;
-    };
-    document.onmouseup = () => { document.onmousemove = null; };
+  const el = document.createElement('img');
+  el.src = src;
+  el.className = 'absolute w-12 h-12 rounded shadow-sm cursor-move';
+  el.style.left = `${x - 24}px`;
+  el.style.top = `${y - 24}px`;
+  el.onmousedown = (e) => {
+    let sx = e.clientX - el.offsetLeft;
+    let sy = e.clientY - el.offsetTop;
+    document.onmousemove = (e) => { el.style.left = `${e.clientX - sx}px`; el.style.top = `${e.clientY - sy}px`; };
+    document.onmouseup = () => document.onmousemove = null;
   };
-  plotArea.appendChild(item);
+  document.getElementById('plot-area').appendChild(el);
 }
 
-function setupPlotterLabels() {
-  const xInput = document.getElementById('axis-x-label');
-  const yInput = document.getElementById('axis-y-label');
-  
-  const update = () => {
-    document.getElementById('label-top').innerText = `${yInput.value} (+)`;
-    document.getElementById('label-bottom').innerText = `${yInput.value} (-)`;
-    document.getElementById('label-right').innerText = `${xInput.value} (+)`;
-    document.getElementById('label-left').innerText = `${xInput.value} (-)`;
-  };
-  
-  xInput.oninput = update;
-  yInput.oninput = update;
-}
-
-// --- Nav & Utilities ---
-function setupNav() {
-  document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.onclick = () => {
-      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const viewId = btn.dataset.view;
-      document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
-      document.getElementById(viewId).classList.add('active');
-    };
-  });
-}
-
-  // --- Firebase & Sharing ---
-async function checkSharedId() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const id = urlParams.get('id');
-  if (id) {
-    const btn = document.getElementById('save-btn');
-    btn.innerHTML = '<span>読み込み中...</span>';
-    try {
-      const docSnap = await getDoc(doc(db, "charts", id));
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.inventory) {
-          state.inventory = data.inventory;
-          localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
-          renderInventory();
-          // Optionally, we could load tiers/matchups if we saved them
-          // For now, focus on inventory and UX
-          alert("共有されたチャートを読み込みました！");
-        }
-      }
-    } catch (e) {
-      console.error("Load failed", e);
-    } finally {
-      btn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-        保存・共有
-      `;
-    }
-  }
-}
-
+// --- Firebase & Export ---
 async function saveToFirebase() {
   const btn = document.getElementById('save-btn');
-  const originalHtml = btn.innerHTML;
-  btn.innerHTML = '<span>保存中...</span>';
-  
+  btn.innerText = '保存中...';
   try {
-    const docRef = await addDoc(collection(db, "charts"), {
-      inventory: state.inventory,
-      timestamp: Date.now()
-    });
-    state.lastSavedId = docRef.id;
-    const shareUrl = `${window.location.origin}${window.location.pathname}?id=${docRef.id}`;
-    
-    // Copy to clipboard
-    navigator.clipboard.writeText(shareUrl);
-    alert("保存が完了し、共有URLをクリップボードにコピーしました！\n" + shareUrl);
-  } catch (e) {
-    alert("エラーが発生しました。");
-  } finally {
-    btn.innerHTML = originalHtml;
+    const ref = await addDoc(collection(db, "charts"), { inventory: state.inventory, timestamp: Date.now() });
+    const url = `${window.location.origin}${window.location.pathname}?id=${ref.id}`;
+    navigator.clipboard.writeText(url);
+    alert("保存完了！URLをコピーしました。\n" + url);
+  } catch (e) { alert("失敗"); } finally { btn.innerText = '保存'; }
+}
+
+async function checkSharedId() {
+  const id = new URLSearchParams(window.location.search).get('id');
+  if (id) {
+    const snap = await getDoc(doc(db, "charts", id));
+    if (snap.exists()) { state.inventory = snap.data().inventory; renderInventory(); showToast("ロード完了"); }
   }
+}
+
+async function exportAsImage() {
+  const view = document.querySelector('.view-container.active');
+  const area = view.querySelector('[id$="-capture-area"]') || view;
+  const canvas = await html2canvas(area, { scale: 2, useCORS: true });
+  const l = document.createElement('a');
+  l.download = 'chart.png';
+  l.href = canvas.toDataURL();
+  l.click();
+}
+
+function showToast(m) {
+  const t = document.createElement('div');
+  t.className = 'fixed bottom-4 right-4 bg-slate-800 text-white px-4 py-2 rounded shadow-lg z-[2000]';
+  t.innerText = m;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2000);
 }
 
 function downloadIcon() {
-  const canvas = document.getElementById('icon-canvas');
-  if (!state.selectedBg) return;
-  const link = document.createElement('a');
-  link.download = 'anokoro_icon.png';
-  link.href = canvas.toDataURL();
-  link.click();
+  const c = document.getElementById('icon-canvas');
+  const l = document.createElement('a');
+  l.download = 'icon.png';
+  l.href = c.toDataURL();
+  l.click();
 }
