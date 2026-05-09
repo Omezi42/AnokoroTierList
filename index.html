@@ -42,6 +42,7 @@
       <div class="top-bar">
         <div class="text-lg font-black" id="current-view-name">アイコン作成</div>
         <div class="flex gap-3">
+          <button class="btn btn-ghost" onclick="copyToClipboard()">コピー</button>
           <button class="btn btn-ghost" onclick="exportAsImage()">画像保存</button>
           <button class="btn btn-primary" id="save-btn">クラウド保存</button>
         </div>
@@ -109,7 +110,7 @@
            </div>
            <div class="flex items-center gap-4 bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm">
              <span class="text-[10px] font-black text-slate-400 uppercase">サイズ</span>
-             <input type="range" min="40" max="100" value="64" style="width: 120px;" oninput="updateIconSize(this.value)">
+             <input type="range" min="40" max="120" value="84" style="width: 120px;" oninput="updateIconSize(this.value)">
            </div>
         </div>
 

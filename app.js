@@ -33,7 +33,7 @@ let state = {
     { id: 't3', name: 'B', color: '#ffff7f' },
     { id: 't4', name: 'C', color: '#7fff7f' }
   ],
-  iconSize: 64,
+  iconSize: 84, // Increased from 64
 };
 
 // --- Initialization ---
@@ -65,6 +65,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   window.updateIconSize = updateIconSize;
   window.handleCustomUpload = handleCustomUpload;
   window.applyTierPreset = applyTierPreset;
+  window.deleteMatchupRow = deleteMatchupRow;
+  window.deleteMatchupCol = deleteMatchupCol;
+  window.copyToClipboard = copyToClipboard;
 });
 
 function setupNav() {
@@ -106,7 +109,7 @@ function renderSearchResults(type, names) {
     img.src = `${baseUrl}/${encodedName}${IMAGE_SUFFIX}`;
     img.className = 'search-img-item';
     img.crossOrigin = "Anonymous";
-    img.loading = "lazy"; // Add lazy loading
+    img.loading = "lazy";
     img.onclick = () => {
       container.querySelectorAll('img').forEach(i => i.classList.remove('selected'));
       img.classList.add('selected');
@@ -180,13 +183,18 @@ function renderInventory() {
       img.style.width = `${state.iconSize}px`;
       img.style.height = `${state.iconSize}px`;
       
-      if (id === 'icon-inventory') {
-        const del = document.createElement('button');
-        del.innerHTML = '×';
-        del.className = 'absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white rounded-full hidden group-hover:flex items-center justify-center text-[10px] font-bold shadow-lg';
-        del.onclick = () => deleteIcon(item.id);
-        wrap.appendChild(del);
-      } else if (id === 'matchup-inventory') {
+      const del = document.createElement('button');
+      del.innerHTML = '×';
+      del.className = 'inventory-delete-btn';
+      del.onmousedown = (e) => e.stopPropagation(); // Prevent drag start
+      del.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteIcon(item.id);
+      };
+      wrap.appendChild(del);
+      
+      if (id === 'matchup-inventory') {
         img.onclick = () => addToMatchup(item.id);
       }
       
@@ -207,8 +215,7 @@ function handleCustomUpload(input) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (e) => {
-    const dataUrl = e.target.result;
-    state.inventory.unshift({ id: 'icon_custom_' + Date.now(), dataUrl });
+    state.inventory.unshift({ id: 'icon_custom_' + Date.now(), dataUrl: e.target.result });
     localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
     renderInventory();
     showToast("アップロード完了");
@@ -250,7 +257,22 @@ function renderTierList() {
       <div class="tier-items-cell" data-id="${tier.id}"></div>
     `;
     container.appendChild(row);
-    new Sortable(row.querySelector('.tier-items-cell'), { group: 'shared', animation: 200, ghostClass: 'opacity-30' });
+    new Sortable(row.querySelector('.tier-items-cell'), { 
+      group: 'shared', 
+      animation: 200, 
+      ghostClass: 'opacity-30',
+      onAdd: (evt) => {
+        // Add delete button to dropped item
+        const item = evt.item;
+        if (!item.querySelector('.inventory-delete-btn')) {
+          const del = document.createElement('button');
+          del.innerHTML = '×';
+          del.className = 'inventory-delete-btn';
+          del.onclick = () => item.remove();
+          item.appendChild(del);
+        }
+      }
+    });
   });
   new Sortable(document.getElementById('tier-inventory'), { group: { name: 'shared', pull: 'clone', put: false }, animation: 200, sort: false });
 }
@@ -302,16 +324,28 @@ function clearTierRow(id) {
 function addToMatchup(id) {
   const icon = state.inventory.find(i => i.id === id);
   if (!icon) return;
+  const colId = 'matchup-col-' + Date.now();
   const header = document.getElementById('matchup-header');
   const th = document.createElement('th');
   th.style.padding = '12px';
-  th.innerHTML = `<img src="${icon.dataUrl}" style="width: 56px; height: 56px; border-radius: 10px; box-shadow: var(--shadow-sm);">`;
+  th.className = 'relative group';
+  th.dataset.colId = colId;
+  th.innerHTML = `
+    <img src="${icon.dataUrl}" style="width: 56px; height: 56px; border-radius: 10px; box-shadow: var(--shadow-sm);">
+    <button class="inventory-delete-btn" onclick="deleteMatchupCol('${colId}')">×</button>
+  `;
   header.appendChild(th);
   
   const body = document.getElementById('matchup-body');
   const tr = document.createElement('tr');
   tr.style.borderBottom = '1px solid #f1f5f9';
-  tr.innerHTML = `<td style="padding: 12px; background: #f8fafc; border-right: 1px solid #f1f5f9;"><img src="${icon.dataUrl}" style="width: 56px; height: 56px; border-radius: 10px; box-shadow: var(--shadow-sm);"></td>`;
+  tr.id = 'matchup-row-' + Date.now();
+  tr.innerHTML = `
+    <td style="padding: 12px; background: #f8fafc; border-right: 1px solid #f1f5f9;" class="relative group">
+      <img src="${icon.dataUrl}" style="width: 56px; height: 56px; border-radius: 10px; box-shadow: var(--shadow-sm);">
+      <button class="inventory-delete-btn" onclick="deleteMatchupRow('${tr.id}')">×</button>
+    </td>
+  `;
   
   const cols = header.cells.length - 1;
   for (let i = 0; i < cols; i++) {
@@ -333,6 +367,18 @@ function addToMatchup(id) {
   });
 }
 
+function deleteMatchupRow(id) { if (confirm("この行を削除しますか？")) document.getElementById(id).remove(); }
+function deleteMatchupCol(colId) {
+  if (!confirm("この列を削除しますか？")) return;
+  const header = document.getElementById('matchup-header');
+  const index = Array.from(header.cells).findIndex(cell => cell.dataset.colId === colId);
+  if (index !== -1) {
+    header.deleteCell(index);
+    const body = document.getElementById('matchup-body');
+    Array.from(body.rows).forEach(row => row.deleteCell(index));
+  }
+}
+
 // --- Plotter ---
 function setupPlotter() {
   const area = document.getElementById('plot-area');
@@ -342,7 +388,10 @@ function setupPlotter() {
       const r = area.getBoundingClientRect();
       const x = e.originalEvent.clientX - r.left;
       const y = e.originalEvent.clientY - r.top;
-      if (x > 0 && y > 0 && x < r.width && y < r.height) createPlotItem(e.item.src, x, y);
+      if (x > 0 && y > 0 && x < r.width && y < r.height) {
+        const imgSrc = e.item.querySelector('img').src;
+        createPlotItem(imgSrc, x, y);
+      }
     }
   });
 }
@@ -350,17 +399,28 @@ function setupPlotter() {
 function createPlotItem(src, x, y) {
   const el = document.createElement('img');
   el.src = src;
-  el.className = 'absolute rounded-xl shadow-lg cursor-move transition-transform hover:scale-110';
+  el.className = 'plot-item';
   el.style.width = '64px';
   el.style.height = '64px';
   el.style.left = `${x - 32}px`;
   el.style.top = `${y - 32}px`;
+  
   el.onmousedown = (e) => {
+    e.preventDefault();
     let sx = e.clientX - el.offsetLeft;
     let sy = e.clientY - el.offsetTop;
-    document.onmousemove = (e) => { el.style.left = `${e.clientX - sx}px`; el.style.top = `${e.clientY - sy}px`; };
+    document.onmousemove = (e) => {
+      el.style.left = `${e.clientX - sx}px`;
+      el.style.top = `${e.clientY - sy}px`;
+    };
     document.onmouseup = () => document.onmousemove = null;
   };
+  
+  el.oncontextmenu = (e) => {
+    e.preventDefault();
+    if (confirm("削除しますか？")) el.remove();
+  };
+  
   document.getElementById('plot-area').appendChild(el);
 }
 
@@ -409,6 +469,22 @@ async function exportAsImage() {
   l.download = `anokoro_pro_${Date.now()}.png`;
   l.href = canvas.toDataURL();
   l.click();
+}
+
+async function copyToClipboard() {
+  const view = document.querySelector('.view-container.active');
+  const area = view.querySelector('[id$="-capture-area"]') || view;
+  const canvas = await html2canvas(area, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+  canvas.toBlob(async (blob) => {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+      showToast("クリップボードにコピーしました");
+    } catch (e) {
+      showToast("コピーに失敗しました");
+    }
+  });
 }
 
 function showToast(m) {

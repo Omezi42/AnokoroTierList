@@ -107,7 +107,7 @@ main { height: 100vh; overflow-y: auto; position: relative; }
 
 @keyframes slideIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
 
-/* Custom Form Elements - THE PRIDE OF THIS DESIGN */
+/* Custom Form Elements */
 
 /* Range Slider */
 input[type="range"] {
@@ -178,6 +178,30 @@ select:focus { box-shadow: 0 0 0 4px var(--primary-glow); border-color: var(--pr
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+.inventory-delete-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  background: #f43f5e;
+  color: white;
+  border: 2px solid white;
+  border-radius: 50%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  z-index: 10;
+}
+
+.group:hover .inventory-delete-btn { display: flex; }
+.inventory-delete-btn:hover { background: #e11d48; transform: scale(1.2); }
 
 /* Dashboard Components */
 .card-glass {
@@ -332,7 +356,7 @@ select:focus { box-shadow: 0 0 0 4px var(--primary-glow); border-color: var(--pr
 
 /* Input Styles */
 input[type="text"] {
-  padding: 12px 16px 12px 40px; /* Space for icon */
+  padding: 12px 16px 12px 40px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-active);
   background: #ffffff;
@@ -364,10 +388,9 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
 
 .input-group:focus-within svg { color: var(--primary); }
 
-/* Label specific input adjustment (no search icon) */
 .label-input { padding-left: 16px !important; }
 
-/* Plotter Grid Improvement */
+/* Plotter Area Improvement */
 .plot-area {
   width: 100%;
   aspect-ratio: 16/9;
@@ -376,7 +399,7 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
   border-radius: var(--radius-xl);
   position: relative;
   overflow: hidden;
-  box-shadow: var(--shadow-floating);
+  box-shadow: var(--shadow-lg);
 }
 
 .plot-grid {
@@ -386,3 +409,17 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
   background-size: 40px 40px;
   opacity: 0.5;
 }
+
+.plot-axis-x { position: absolute; bottom: 50%; left: 0; right: 0; height: 1px; background: #e2e8f0; }
+.plot-axis-y { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #e2e8f0; }
+
+.plot-item {
+  position: absolute;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  cursor: move;
+  transition: transform 0.1s;
+  z-index: 20;
+}
+
+.plot-item:hover { transform: scale(1.1); z-index: 30; }
