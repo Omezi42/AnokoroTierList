@@ -43,16 +43,17 @@ window.addEventListener('DOMContentLoaded', async () => {
   renderTierList();
   setupSearch();
   setupPlotter();
+  setupNav();
+  setupPlotterLabels();
+  await checkSharedId();
   
   document.getElementById('save-btn').onclick = saveToFirebase;
 
   // Global functions
-  window.switchView = switchView;
   window.addIconToInventory = addIconToInventory;
   window.downloadIcon = downloadIcon;
   window.addTierRow = addTierRow;
   window.addToMatchup = addToMatchup;
-  window.sendToDiscord = sendToDiscord;
   window.deleteIcon = deleteIcon;
 });
 
@@ -69,24 +70,28 @@ async function fetchCardNames() {
 }
 
 function setupSearch() {
-  document.getElementById('bg-search').oninput = (e) => {
-    const filtered = state.cardNames.filter(n => n.includes(e.target.value));
-    renderSearchResults('bg', filtered);
-  };
-  document.getElementById('sub-search').oninput = (e) => {
-    const filtered = state.cardNames.filter(n => n.includes(e.target.value));
-    renderSearchResults('sub', filtered);
-  };
+  const bgInput = document.getElementById('bg-search');
+  const subInput = document.getElementById('sub-search');
+  
+  bgInput.oninput = (e) => renderSearchResults('bg', state.cardNames.filter(n => n.includes(e.target.value)));
+  subInput.oninput = (e) => renderSearchResults('sub', state.cardNames.filter(n => n.includes(e.target.value)));
 }
 
 function renderSearchResults(type, names) {
   const container = document.getElementById(`${type}-results`);
   container.innerHTML = '';
-  names.slice(0, 50).forEach(name => {
+  
+  if (names.length === 0) {
+    container.innerHTML = '<div class="col-span-full text-center text-muted py-4">見つかりません</div>';
+    return;
+  }
+
+  names.slice(0, 40).forEach(name => {
     const img = document.createElement('img');
     const encodedName = encodeURIComponent(name).replace(/\(/g, '%28').replace(/\)/g, '%29');
     const baseUrl = type === 'bg' ? CROPPED_IMAGE_BASE_URL : TRANSPARENT_IMAGE_BASE_URL;
     img.src = `${baseUrl}/${encodedName}${IMAGE_SUFFIX}`;
+    img.title = name;
     img.crossOrigin = "Anonymous";
     img.onclick = () => {
       container.querySelectorAll('img').forEach(i => i.classList.remove('selected'));
@@ -95,67 +100,142 @@ function renderSearchResults(type, names) {
       else state.selectedSub = img.src;
       updateCanvas();
     };
+    img.onerror = () => { img.style.display = 'none'; };
     container.appendChild(img);
   });
 }
 
+/**
+ * AnokoroTierImageMaker の仕様を完全再現したCanvas描画
+ */
 function updateCanvas() {
   const canvas = document.getElementById('icon-canvas');
   const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const canvasSize = 512;
   
-  if (state.selectedBg) {
-    const bg = new Image();
-    bg.crossOrigin = "Anonymous";
-    bg.src = state.selectedBg;
-    bg.onload = () => {
-      ctx.drawImage(bg, 0, 0, 512, 512);
-      if (state.selectedSub) {
-        const sub = new Image();
-        sub.crossOrigin = "Anonymous";
-        sub.src = state.selectedSub;
-        sub.onload = () => {
-          ctx.drawImage(sub, 512 - 350, 512 - 400, 450, 450);
-        };
-      }
-    };
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+  if (!state.selectedBg) {
+     // 背景がない場合はテキストを表示
+     ctx.fillStyle = "#f1f5f9";
+     ctx.fillRect(0, 0, canvasSize, canvasSize);
+     ctx.fillStyle = "#94a3b8";
+     ctx.font = "bold 24px sans-serif";
+     ctx.textAlign = "center";
+     ctx.fillText("背景を選択してください", canvasSize/2, canvasSize/2);
+     return;
   }
+
+  const bgImg = new Image();
+  bgImg.crossOrigin = "Anonymous";
+  bgImg.src = state.selectedBg;
+  bgImg.onload = () => {
+    // 1. 背景描画 (アスペクト比維持してCanvasを埋める)
+    const imgAspect = bgImg.width / bgImg.height;
+    let drawW, drawH, x, y;
+    if (imgAspect > 1) {
+      drawH = canvasSize;
+      drawW = canvasSize * imgAspect;
+      x = (canvasSize - drawW) / 2;
+      y = 0;
+    } else {
+      drawW = canvasSize;
+      drawH = canvasSize / imgAspect;
+      x = 0;
+      y = (canvasSize - drawH) / 2;
+    }
+    ctx.drawImage(bgImg, x, y, drawW, drawH);
+
+    // 2. サブカード描画 (右下に重なるように配置)
+    if (state.selectedSub) {
+      const subImg = new Image();
+      subImg.crossOrigin = "Anonymous";
+      subImg.src = state.selectedSub;
+      subImg.onload = () => {
+        const maxSubSize = canvasSize * (4 / 5);
+        const subAspect = subImg.width / subImg.height;
+        let subW, subH;
+        
+        if (subAspect > 1) {
+          subW = maxSubSize;
+          subH = maxSubSize / subAspect;
+        } else {
+          subH = maxSubSize;
+          subW = maxSubSize * subAspect;
+        }
+        
+        // オリジナルの配置ロジック
+        const subX = canvasSize - subW * (2 / 3);
+        const subY = canvasSize - subH;
+        
+        ctx.drawImage(subImg, subX, subY, subW, subH);
+      };
+    }
+  };
 }
 
 function addIconToInventory() {
+  if (!state.selectedBg || !state.selectedSub) {
+    alert("背景とサブカードの両方を選択してください。");
+    return;
+  }
   const canvas = document.getElementById('icon-canvas');
   const dataUrl = canvas.toDataURL('image/png');
   const id = 'icon_' + Date.now();
-  state.inventory.push({ id, dataUrl });
+  state.inventory.unshift({ id, dataUrl }); // 最新を前に
   localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
   renderInventory();
+  
+  // UX: 成功フィードバック
+  const btn = event.currentTarget;
+  const originalText = btn.innerText;
+  btn.innerText = "追加しました！";
+  btn.style.background = "#22c55e";
+  setTimeout(() => {
+    btn.innerText = originalText;
+    btn.style.background = "";
+  }, 1000);
 }
 
 function renderInventory() {
-  const containers = ['icon-inventory', 'tier-inventory', 'plot-inventory'];
+  const containers = ['icon-inventory', 'tier-inventory', 'matchup-inventory', 'plot-inventory'];
   containers.forEach(cid => {
     const container = document.getElementById(cid);
     if (!container) return;
     container.innerHTML = '';
+    
+    if (state.inventory.length === 0) {
+       container.innerHTML = '<div class="text-muted w-full text-center py-4">アイコンがありません</div>';
+       return;
+    }
+
     state.inventory.forEach(item => {
       const wrapper = document.createElement('div');
       wrapper.className = 'relative group inline-block';
       
       const img = document.createElement('img');
       img.src = item.dataUrl;
-      img.className = 'w-16 h-16 rounded shadow cursor-pointer border-2 border-transparent hover:border-primary transition-all';
+      img.className = 'icon-item';
       img.dataset.id = item.id;
       
       if (cid === 'icon-inventory') {
-        const controls = document.createElement('div');
-        controls.className = 'absolute -top-2 -right-2 hidden group-hover:flex flex-col gap-1 z-10';
-        controls.innerHTML = `
-          <button onclick="addToMatchup('${item.id}')" class="bg-blue-500 text-white p-1 rounded text-xs">M</button>
-          <button onclick="deleteIcon('${item.id}')" class="bg-red-500 text-white p-1 rounded text-xs">×</button>
-        `;
-        wrapper.appendChild(controls);
+        const delBtn = document.createElement('button');
+        delBtn.innerHTML = '×';
+        delBtn.className = 'absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white rounded-full hidden group-hover:block z-10 font-bold';
+        delBtn.onclick = (e) => {
+          e.stopPropagation();
+          deleteIcon(item.id);
+        };
+        wrapper.appendChild(delBtn);
       }
       
+      if (cid === 'matchup-inventory') {
+        img.onclick = () => addToMatchup(item.id);
+        img.style.cursor = 'pointer';
+        img.title = "クリックで相性表に追加";
+      }
+
       wrapper.appendChild(img);
       container.appendChild(wrapper);
     });
@@ -163,9 +243,11 @@ function renderInventory() {
 }
 
 function deleteIcon(id) {
-  state.inventory = state.inventory.filter(i => i.id !== id);
-  localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
-  renderInventory();
+  if (confirm('このアイコンを削除しますか？')) {
+    state.inventory = state.inventory.filter(i => i.id !== id);
+    localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
+    renderInventory();
+  }
 }
 
 // --- Tier List Logic ---
@@ -183,7 +265,8 @@ function renderTierList() {
     
     new Sortable(row.querySelector('.tier-content'), {
       group: 'shared',
-      animation: 150
+      animation: 150,
+      ghostClass: 'opacity-50'
     });
   });
   
@@ -197,7 +280,7 @@ function renderTierList() {
 function addTierRow() {
   const name = prompt('Tier名', 'New');
   if (name) {
-    state.tiers.push({ name, color: '#ccc' });
+    state.tiers.push({ name, color: '#f1f5f9' });
     renderTierList();
   }
 }
@@ -208,13 +291,16 @@ function addToMatchup(id) {
   if (!icon) return;
   
   const header = document.getElementById('matchup-header');
+  // 既に存在するかチェック
+  if (Array.from(header.cells).some(cell => cell.querySelector('img')?.src === icon.dataUrl)) return;
+
   const th = document.createElement('th');
-  th.innerHTML = `<img src="${icon.dataUrl}" class="w-10 h-10 mx-auto">`;
+  th.innerHTML = `<img src="${icon.dataUrl}" class="w-12 h-12 mx-auto rounded shadow-sm">`;
   header.appendChild(th);
   
   const body = document.getElementById('matchup-body');
   const tr = document.createElement('tr');
-  tr.innerHTML = `<td><img src="${icon.dataUrl}" class="w-10 h-10 mx-auto"></td>`;
+  tr.innerHTML = `<td class="bg-slate-50 font-bold"><img src="${icon.dataUrl}" class="w-12 h-12 mx-auto rounded shadow-sm"></td>`;
   
   const colCount = header.cells.length - 1;
   for (let i = 0; i < colCount; i++) {
@@ -224,6 +310,7 @@ function addToMatchup(id) {
   }
   body.appendChild(tr);
   
+  // 既存の行に新しい列を追加
   Array.from(body.rows).forEach((row, idx) => {
     if (idx === body.rows.length - 1) return;
     const td = document.createElement('td');
@@ -233,7 +320,7 @@ function addToMatchup(id) {
 }
 
 function createMatchupSelect() {
-  return `<select class="bg-transparent border-none text-xs text-white">
+  return `<select class="matchup-select">
     <option value="even">±0</option>
     <option value="win">+1</option>
     <option value="lose">-1</option>
@@ -263,9 +350,9 @@ function createPlotItem(src, x, y) {
   const plotArea = document.getElementById('plot-area');
   const item = document.createElement('img');
   item.src = src;
-  item.className = 'absolute w-12 h-12 rounded shadow-lg cursor-move transition-transform hover:scale-110';
-  item.style.left = `${x - 24}px`;
-  item.style.top = `${y - 24}px`;
+  item.className = 'absolute w-14 h-14 rounded-lg shadow-lg cursor-move transition-transform hover:scale-125 z-20';
+  item.style.left = `${x - 28}px`;
+  item.style.top = `${y - 28}px`;
   
   item.onmousedown = (e) => {
     let startX = e.clientX - item.offsetLeft;
@@ -279,10 +366,69 @@ function createPlotItem(src, x, y) {
   plotArea.appendChild(item);
 }
 
-// --- Firebase & Sharing ---
+function setupPlotterLabels() {
+  const xInput = document.getElementById('axis-x-label');
+  const yInput = document.getElementById('axis-y-label');
+  
+  const update = () => {
+    document.getElementById('label-top').innerText = `${yInput.value} (+)`;
+    document.getElementById('label-bottom').innerText = `${yInput.value} (-)`;
+    document.getElementById('label-right').innerText = `${xInput.value} (+)`;
+    document.getElementById('label-left').innerText = `${xInput.value} (-)`;
+  };
+  
+  xInput.oninput = update;
+  yInput.oninput = update;
+}
+
+// --- Nav & Utilities ---
+function setupNav() {
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const viewId = btn.dataset.view;
+      document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
+      document.getElementById(viewId).classList.add('active');
+    };
+  });
+}
+
+  // --- Firebase & Sharing ---
+async function checkSharedId() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const id = urlParams.get('id');
+  if (id) {
+    const btn = document.getElementById('save-btn');
+    btn.innerHTML = '<span>読み込み中...</span>';
+    try {
+      const docSnap = await getDoc(doc(db, "charts", id));
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.inventory) {
+          state.inventory = data.inventory;
+          localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
+          renderInventory();
+          // Optionally, we could load tiers/matchups if we saved them
+          // For now, focus on inventory and UX
+          alert("共有されたチャートを読み込みました！");
+        }
+      }
+    } catch (e) {
+      console.error("Load failed", e);
+    } finally {
+      btn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+        保存・共有
+      `;
+    }
+  }
+}
+
 async function saveToFirebase() {
-  const saveBtn = document.getElementById('save-btn');
-  saveBtn.innerText = 'Saving...';
+  const btn = document.getElementById('save-btn');
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = '<span>保存中...</span>';
   
   try {
     const docRef = await addDoc(collection(db, "charts"), {
@@ -291,50 +437,20 @@ async function saveToFirebase() {
     });
     state.lastSavedId = docRef.id;
     const shareUrl = `${window.location.origin}${window.location.pathname}?id=${docRef.id}`;
-    prompt("保存完了！共有用URL:", shareUrl);
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(shareUrl);
+    alert("保存が完了し、共有URLをクリップボードにコピーしました！\n" + shareUrl);
   } catch (e) {
-    console.error(e);
-    alert("保存に失敗しました");
+    alert("エラーが発生しました。");
   } finally {
-    saveBtn.innerText = 'Save & Share';
+    btn.innerHTML = originalHtml;
   }
-}
-
-async function sendToDiscord() {
-  const webhookUrl = document.getElementById('discord-webhook').value;
-  if (!webhookUrl) {
-    alert("Webhook URLを入力してください。");
-    return;
-  }
-  
-  await saveToFirebase();
-  if (!state.lastSavedId) return;
-  
-  const shareUrl = `${window.location.origin}${window.location.pathname}?id=${state.lastSavedId}`;
-
-  try {
-    await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: `新しいTier表/チャートが作成されました！\n${shareUrl}`
-      })
-    });
-    alert("Discordに送信しました！");
-  } catch (e) {
-    alert("送信に失敗しました。URLを確認してください。");
-  }
-}
-
-function switchView(viewId) {
-  document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
-  document.getElementById(viewId).classList.add('active');
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  event.currentTarget.classList.add('active');
 }
 
 function downloadIcon() {
   const canvas = document.getElementById('icon-canvas');
+  if (!state.selectedBg) return;
   const link = document.createElement('a');
   link.download = 'anokoro_icon.png';
   link.href = canvas.toDataURL();
