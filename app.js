@@ -56,6 +56,18 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('save-btn').onclick = saveToFirebase;
 
+  // Inventory Toggle
+  const toggleBtn = document.getElementById('inventory-toggle-btn');
+  const isCollapsed = localStorage.getItem('anokoro_tray_collapsed') === 'true';
+  if (isCollapsed) document.body.classList.add('tray-is-collapsed');
+  
+  if (toggleBtn) {
+    toggleBtn.onclick = () => {
+      const collapsed = document.body.classList.toggle('tray-is-collapsed');
+      localStorage.setItem('anokoro_tray_collapsed', collapsed);
+    };
+  }
+
   // Global exports
   window.addIconToInventory = addIconToInventory;
   window.downloadIcon = downloadIcon;
@@ -133,6 +145,7 @@ function renderSearchResults(type, names) {
     img.className = 'search-img-item';
     img.crossOrigin = "Anonymous";
     img.loading = "lazy";
+    img.onerror = () => img.remove(); // 404等の場合は非表示にする
     img.onclick = () => {
       container.querySelectorAll('img').forEach(i => i.classList.remove('selected'));
       img.classList.add('selected');
@@ -181,14 +194,51 @@ function updateCanvas() {
   };
 }
 
-function addIconToInventory() {
+// --- Image Compression Utility ---
+async function compressImage(src, maxSize = 256) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width;
+      let h = img.height;
+      
+      if (w > maxSize || h > maxSize) {
+        if (w > h) { h = Math.round((h * maxSize) / w); w = maxSize; } 
+        else { w = Math.round((w * maxSize) / h); h = maxSize; }
+      }
+      
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/webp', 0.85));
+    };
+    img.onerror = () => resolve(src);
+    img.src = src;
+  });
+}
+
+async function addIconToInventory() {
   if (!state.selectedBg || !state.selectedSub) return;
   const canvas = document.getElementById('icon-canvas');
-  const dataUrl = canvas.toDataURL('image/png');
-  state.inventory.unshift({ id: 'icon_' + Date.now(), dataUrl });
-  localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
-  renderInventory();
-  showToast("追加しました");
+  const originalDataUrl = canvas.toDataURL('image/png');
+  
+  // 容量節約のために圧縮
+  const compressedDataUrl = await compressImage(originalDataUrl, 256);
+  
+  state.inventory.unshift({ id: 'icon_' + Date.now(), dataUrl: compressedDataUrl });
+  
+  try {
+    localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
+    renderInventory();
+    showToast("追加しました");
+  } catch (e) {
+    console.error("Storage limit exceeded", e);
+    state.inventory.shift(); // 追加をキャンセル
+    alert("保存容量の限界です！「Reset Tray」を押すか不要なアイコンを削除してください。\n(過去に巨大なデータが保存されている可能性があります)");
+  }
 }
 
 function renderInventory() {
@@ -245,11 +295,19 @@ function handleCustomUpload(input) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = (e) => {
-    state.inventory.unshift({ id: 'icon_custom_' + Date.now(), dataUrl: e.target.result });
-    localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
-    renderInventory();
-    showToast("アップロード完了");
+  reader.onload = async (e) => {
+    // アップロードされた画像も圧縮して容量削減
+    const compressedDataUrl = await compressImage(e.target.result, 256);
+    state.inventory.unshift({ id: 'icon_custom_' + Date.now(), dataUrl: compressedDataUrl });
+    try {
+      localStorage.setItem('anokoro_inventory', JSON.stringify(state.inventory));
+      renderInventory();
+      showToast("アップロード完了");
+    } catch (err) {
+      console.error("Storage limit exceeded", err);
+      state.inventory.shift();
+      alert("保存容量の限界です！不要なアイコンを削除してください。");
+    }
   };
   reader.readAsDataURL(file);
 }
