@@ -352,6 +352,8 @@ function clearTierRow(id) {
 }
 
 // --- Matchup ---
+let matchupDeckIdCounter = 0;
+
 function addToMatchup(id) {
   const icon = state.inventory.find(i => i.id === id);
   if (!icon) return;
@@ -367,7 +369,7 @@ function addToMatchup(id) {
     header.appendChild(scoreTh);
   }
 
-  const nextIdx = body.rows.length; // 新しいデッキのインデックス
+  const nextIdx = matchupDeckIdCounter++; // 新しいデッキのインデックス
   
   // 1. ヘッダーに新しいデッキの列を追加（Totalの前）
   const th = document.createElement('th');
@@ -395,16 +397,18 @@ function addToMatchup(id) {
   const optionsHtml = options.map(o => `<option value="${o}" ${o === '±0' ? 'selected' : ''}>${o}</option>`).join('');
 
   // 3. 既存の行すべてに新しい列セルを追加（Totalの前）
-  Array.from(body.rows).forEach((row, rIdx) => {
+  Array.from(body.rows).forEach((row) => {
+    const rIdx = row.dataset.rowIdx;
     const td = document.createElement('td');
     td.innerHTML = `<div class="cell-content"><select data-row="${rIdx}" data-col="${nextIdx}" onchange="updateMatchupColor(this)" class="match-zero">${optionsHtml}</select></div>`;
     row.insertBefore(td, row.querySelector('.matchup-score-cell'));
   });
 
   // 4. 新しい行にセルを追加
-  for (let cIdx = 0; cIdx <= nextIdx; cIdx++) {
+  const existingCols = Array.from(header.querySelectorAll('th[data-col-idx]')).map(th => th.dataset.colIdx);
+  existingCols.forEach(cIdx => {
     const td = document.createElement('td');
-    if (cIdx === nextIdx) {
+    if (cIdx == nextIdx) {
       // 対角線セル
       td.className = 'matchup-diagonal';
       td.innerHTML = `<div class="cell-content"><select data-row="${nextIdx}" data-col="${cIdx}" class="match-zero" disabled style="opacity:0; pointer-events:none;"><option value="±0">±0</option></select></div>`;
@@ -412,7 +416,7 @@ function addToMatchup(id) {
       td.innerHTML = `<div class="cell-content"><select data-row="${nextIdx}" data-col="${cIdx}" onchange="updateMatchupColor(this)" class="match-zero">${optionsHtml}</select></div>`;
     }
     tr.appendChild(td);
-  }
+  });
 
   // 5. 新しい行にScoreセルを追加
   const scoreTd = document.createElement('td');
@@ -577,7 +581,12 @@ async function saveToFirebase() {
     const url = `${window.location.origin}${window.location.pathname}?id=${ref.id}`;
     navigator.clipboard.writeText(url);
     alert("クラウドに保存しました！URLをコピーしました。");
-  } catch (e) { alert("失敗"); } finally { btn.innerText = 'クラウド保存'; }
+  } catch (e) { 
+    console.error("Firebase Save Error:", e);
+    alert("保存失敗: " + e.message); 
+  } finally { 
+    btn.innerText = 'クラウド保存'; 
+  }
 }
 
 async function checkSharedId() {
