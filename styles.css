@@ -906,6 +906,7 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
     left: 0;
     bottom: 64px; /* Sit above mobile bottom nav */
     padding: 0.5rem 0;
+    z-index: 2100; /* Above mobile bottom nav (2000) so toggle stays visible */
   }
 
   body.tray-is-collapsed .global-inventory-tray {
