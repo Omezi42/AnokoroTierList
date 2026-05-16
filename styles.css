@@ -385,12 +385,14 @@ body.tray-is-collapsed .inventory-toggle-btn svg {
   border-radius: var(--radius-lg);
   padding: 1rem;
   border: 1px solid var(--border);
-  overflow: visible !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .tray-grid {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 12px;
 }
 
@@ -607,4 +609,423 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
   display: block;
   margin-bottom: 0.25rem;
   font-size: 0.95rem;
+}
+
+/* --- Desktop: Icon Maker Grid --- */
+.icon-maker-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 480px;
+  gap: 2.5rem;
+}
+
+/* --- Matchup Scroll Wrapper --- */
+.matchup-scroll-wrapper {
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 24px;
+  border: 1px solid #f1f5f9;
+  background: white;
+  box-shadow: var(--shadow-lg);
+}
+
+/* --- Top Bar Actions --- */
+.top-bar-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* --- Mobile Brand Text (hidden on desktop) --- */
+.mobile-brand-text {
+  display: none;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 900;
+  font-size: 1.2rem;
+  letter-spacing: -0.05em;
+  color: var(--text-main);
+}
+
+/* --- Mobile Bottom Navigation --- */
+.mobile-bottom-nav {
+  display: none; /* hidden on desktop */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+  z-index: 2000;
+  padding: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.mobile-nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.2s, transform 0.2s;
+  padding: 6px 0;
+  position: relative;
+}
+
+.mobile-nav-btn svg {
+  width: 22px;
+  height: 22px;
+  transition: transform 0.2s;
+}
+
+.mobile-nav-btn.active {
+  color: var(--primary);
+}
+
+.mobile-nav-btn.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 3px;
+  background: var(--primary);
+  border-radius: 0 0 4px 4px;
+}
+
+.mobile-nav-btn:active svg {
+  transform: scale(0.9);
+}
+
+/* --- Toast mobile-aware --- */
+.toast-popup {
+  position: fixed;
+  bottom: 5rem;
+  right: 1rem;
+  background: #0f172a;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 1.5rem;
+  box-shadow: var(--shadow-lg);
+  z-index: 3000;
+  font-size: 0.85rem;
+  font-weight: 600;
+  animation: toastIn 0.3s ease-out;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* =============================================
+   RESPONSIVE: Smartphone (max-width: 768px)
+   ============================================= */
+@media (max-width: 768px) {
+
+  /* --- Body & App Container --- */
+  body {
+    overflow: auto;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .app-container {
+    display: block; /* Remove grid, full-width single column */
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  /* --- Hide Desktop Sidebar --- */
+  aside {
+    display: none !important;
+  }
+
+  /* --- Show Mobile Brand in Top Bar --- */
+  .mobile-brand-text {
+    display: block;
+  }
+
+  /* --- Main Area --- */
+  main {
+    height: auto;
+    overflow-y: visible;
+    padding-bottom: 180px; /* space for inventory tray + bottom nav */
+  }
+
+  body.tray-is-collapsed main {
+    padding-bottom: 80px; /* just bottom nav height */
+  }
+
+  /* --- Top Bar Mobile --- */
+  .top-bar {
+    height: 52px;
+    padding: 0 1rem;
+    gap: 0.5rem;
+  }
+
+  #current-view-name {
+    display: none; /* The mobile bottom nav already shows this */
+  }
+
+  .top-bar-actions {
+    gap: 0.4rem;
+    margin-left: auto;
+  }
+
+  .top-bar-action-btn {
+    padding: 8px !important;
+    min-width: 36px;
+    min-height: 36px;
+    justify-content: center;
+  }
+
+  .top-bar-action-btn .btn-label {
+    display: none; /* Hide text, show only icons */
+  }
+
+  .top-bar-action-btn svg {
+    flex-shrink: 0;
+  }
+
+  /* --- Show Mobile Bottom Navigation --- */
+  .mobile-bottom-nav {
+    display: flex;
+  }
+
+  /* --- View Container Mobile --- */
+  .view-container {
+    padding: 1.25rem 1rem;
+  }
+
+  /* --- Help Box Mobile --- */
+  .help-box {
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.8rem;
+  }
+
+  /* --- Icon Maker: Stack to 1 Column --- */
+  .icon-maker-grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .card-glass {
+    padding: 1rem;
+  }
+
+  .card-glass:hover {
+    transform: none; /* Disable hover lift on mobile */
+    box-shadow: var(--shadow-sm);
+  }
+
+  .search-results-box {
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: 8px;
+    max-height: 250px;
+  }
+
+  #icon-canvas {
+    border-radius: 16px !important;
+  }
+
+  /* --- Tier List Mobile --- */
+  .tier-row {
+    min-height: 80px;
+    border-radius: var(--radius-md);
+  }
+
+  .tier-label-cell {
+    width: 60px;
+    min-width: 60px;
+  }
+
+  .tier-name-input {
+    font-size: 1.4rem;
+  }
+
+  .tier-actions {
+    opacity: 1; /* Always visible on mobile (no hover) */
+    top: 4px;
+    left: 4px;
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+
+  .action-btn {
+    width: 22px;
+    height: 22px;
+    font-size: 0.6rem;
+    border-radius: 4px;
+  }
+
+  .tier-items-cell {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  /* --- Matchup Table Mobile --- */
+  .matchup-scroll-wrapper {
+    border-radius: 14px;
+  }
+
+  .matchup-table th, .matchup-table td {
+    padding: 8px !important;
+    min-width: 60px;
+  }
+
+  /* --- Plotter Mobile --- */
+  .plot-area {
+    aspect-ratio: 1 / 1; /* Square is easier on mobile */
+    border-radius: var(--radius-lg);
+  }
+
+  #plotter .flex.gap-10 {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: var(--radius-lg);
+  }
+
+  /* --- Inventory Tray Mobile --- */
+  .global-inventory-tray {
+    left: 0;
+    bottom: 64px; /* Sit above mobile bottom nav */
+    padding: 0.5rem 0;
+  }
+
+  body.tray-is-collapsed .global-inventory-tray {
+    transform: translateY(calc(100% + 64px)); /* Hide fully below screen */
+  }
+
+  .inventory-toggle-btn {
+    top: -30px;
+    width: 50px;
+    height: 30px;
+    border-radius: 10px 10px 0 0;
+  }
+
+  .inventory-container {
+    padding: 0 0.75rem;
+  }
+
+  .inventory-container .flex.items-center.justify-between.mb-4 {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .inventory-container h3 {
+    font-size: 0.75rem !important;
+  }
+
+  .tray-wrapper {
+    padding: 0.5rem;
+    border-radius: var(--radius-md);
+  }
+
+  .tray-grid {
+    gap: 8px;
+  }
+
+  .tray-icon-img {
+    flex-shrink: 0;
+  }
+
+  .tray-icon-img:hover {
+    transform: none; /* no hover effect on mobile */
+  }
+
+  /* --- Buttons Mobile --- */
+  .btn {
+    padding: 8px 16px;
+    font-size: 0.8rem;
+  }
+
+  /* --- Delete Button: Always Visible on Mobile --- */
+  .group .inventory-delete-btn,
+  .plot-item .inventory-delete-btn {
+    opacity: 1 !important;
+    visibility: visible !important;
+    width: 22px !important;
+    height: 22px !important;
+    font-size: 12px !important;
+    top: -6px !important;
+    right: -6px !important;
+  }
+
+  /* --- Tier List Header Mobile --- */
+  #tier-list .flex.items-center.justify-between.mb-4 {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+
+  #tier-list .flex.gap-4 {
+    justify-content: flex-start;
+    gap: 0.5rem;
+  }
+
+  #tier-list .flex.gap-4 .btn {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+  }
+
+  /* --- Plotter Labels Mobile --- */
+  #label-top, #label-bottom, #label-right, #label-left {
+    font-size: 0.6rem !important;
+  }
+
+  #label-top { top: 0.75rem !important; }
+  #label-bottom { bottom: 0.75rem !important; }
+  #label-right { right: 0.75rem !important; }
+  #label-left { left: 0.75rem !important; }
+}
+
+/* =============================================
+   RESPONSIVE: Small Phones (max-width: 400px)
+   ============================================= */
+@media (max-width: 400px) {
+  .mobile-brand-text {
+    font-size: 1rem;
+  }
+
+  .top-bar-action-btn {
+    padding: 6px !important;
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  .tier-label-cell {
+    width: 44px;
+    min-width: 44px;
+  }
+
+  .tier-name-input {
+    font-size: 1.1rem;
+  }
+
+  .mobile-nav-btn {
+    font-size: 0.6rem;
+  }
+
+  .mobile-nav-btn svg {
+    width: 20px;
+    height: 20px;
+  }
 }

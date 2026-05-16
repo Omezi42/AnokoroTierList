@@ -91,19 +91,31 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupNav() {
-  const btns = document.querySelectorAll('.side-btn');
-  btns.forEach(btn => {
-    btn.onclick = () => {
-      const viewId = btn.getAttribute('data-view');
-      btns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
-      document.getElementById(viewId).classList.add('active');
-      document.getElementById('current-view-name').innerText = btn.innerText.trim();
-      
-      initTraySortable(viewId);
-      renderInventory(); 
-    };
+  const sidebtns = document.querySelectorAll('.side-btn');
+  const mobilebtns = document.querySelectorAll('.mobile-nav-btn');
+  const allNavBtns = [...sidebtns, ...mobilebtns];
+
+  function switchView(viewId, sourceBtn) {
+    // Sync both navs
+    sidebtns.forEach(b => b.classList.remove('active'));
+    mobilebtns.forEach(b => b.classList.remove('active'));
+    allNavBtns.forEach(b => {
+      if (b.getAttribute('data-view') === viewId) b.classList.add('active');
+    });
+    document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
+    document.getElementById(viewId).classList.add('active');
+    const viewNameEl = document.getElementById('current-view-name');
+    if (viewNameEl) viewNameEl.innerText = sourceBtn.innerText.trim();
+
+    initTraySortable(viewId);
+    renderInventory();
+  }
+
+  sidebtns.forEach(btn => {
+    btn.onclick = () => switchView(btn.getAttribute('data-view'), btn);
+  });
+  mobilebtns.forEach(btn => {
+    btn.onclick = () => switchView(btn.getAttribute('data-view'), btn);
   });
 }
 
@@ -587,6 +599,7 @@ function createPlotItem(src, x, y) {
     el.remove();
   };
   
+  // --- Mouse drag ---
   el.onmousedown = (e) => {
     if (e.target === del) return;
     e.preventDefault();
@@ -613,6 +626,41 @@ function createPlotItem(src, x, y) {
     document.addEventListener('mousemove', move);
     document.addEventListener('mouseup', stop);
   };
+
+  // --- Touch drag (mobile) ---
+  el.ontouchstart = (e) => {
+    if (e.target === del) return;
+    // Don't prevent default here to allow scroll if needed,
+    // but we do stop propagation to avoid conflicts
+    const touch = e.touches[0];
+    el.style.transition = 'none';
+    el.style.zIndex = '100';
+    const startX = touch.clientX;
+    const startY = touch.clientY;
+    const startL = parseInt(el.style.left) || 0;
+    const startT = parseInt(el.style.top) || 0;
+    let moved = false;
+    
+    const move = (te) => {
+      te.preventDefault(); // Prevent scrolling while dragging
+      moved = true;
+      const t = te.touches[0];
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      el.style.left = `${startL + dx}px`;
+      el.style.top = `${startT + dy}px`;
+    };
+    
+    const stop = () => {
+      el.style.transition = '';
+      el.style.zIndex = '';
+      document.removeEventListener('touchmove', move);
+      document.removeEventListener('touchend', stop);
+    };
+    document.addEventListener('touchmove', move, { passive: false });
+    document.addEventListener('touchend', stop);
+  };
+
   document.getElementById('plot-area').appendChild(el);
 }
 
@@ -687,7 +735,7 @@ async function copyToClipboard() {
 
 function showToast(m) {
   const t = document.createElement('div');
-  t.className = 'fixed bottom-10 right-10 bg-slate-900 text-white px-8 py-4 rounded-3xl shadow-lg z-[2000] pop-in';
+  t.className = 'toast-popup';
   t.innerText = m;
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 3000);
