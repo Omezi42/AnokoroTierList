@@ -653,12 +653,12 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
   bottom: 0;
   left: 0;
   right: 0;
-  height: 64px;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  height: 72px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border-top: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.08);
   z-index: 2000;
   padding: 0;
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -670,26 +670,33 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 700;
   cursor: pointer;
-  transition: color 0.2s, transform 0.2s;
-  padding: 6px 0;
+  transition: color 0.15s, transform 0.15s;
+  padding: 8px 0;
   position: relative;
+  min-height: 48px; /* Apple HIG 44pt minimum */
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
 .mobile-nav-btn svg {
-  width: 22px;
-  height: 22px;
-  transition: transform 0.2s;
+  width: 24px;
+  height: 24px;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .mobile-nav-btn.active {
   color: var(--primary);
+}
+
+.mobile-nav-btn.active svg {
+  transform: scale(1.1);
 }
 
 .mobile-nav-btn.active::before {
@@ -698,35 +705,42 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 32px;
+  width: 28px;
   height: 3px;
   background: var(--primary);
   border-radius: 0 0 4px 4px;
 }
 
-.mobile-nav-btn:active svg {
-  transform: scale(0.9);
+/* Pressed state for haptic-like feedback */
+.mobile-nav-btn:active {
+  transform: scale(0.92);
 }
 
-/* --- Toast mobile-aware --- */
+.mobile-nav-btn:active svg {
+  transform: scale(0.85);
+}
+
+/* --- Toast --- */
 .toast-popup {
   position: fixed;
   bottom: 5rem;
-  right: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
   background: #0f172a;
   color: white;
-  padding: 0.75rem 1.5rem;
+  padding: 0.75rem 1.75rem;
   border-radius: 1.5rem;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   z-index: 3000;
   font-size: 0.85rem;
   font-weight: 600;
-  animation: toastIn 0.3s ease-out;
+  white-space: nowrap;
+  animation: toastIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes toastIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.9); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
 }
 
 /* =============================================
@@ -740,10 +754,11 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
     height: auto;
     min-height: 100vh;
     min-height: 100dvh;
+    -webkit-text-size-adjust: 100%;
   }
 
   .app-container {
-    display: block; /* Remove grid, full-width single column */
+    display: block;
     height: auto;
     min-height: 100vh;
     min-height: 100dvh;
@@ -763,38 +778,64 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
   main {
     height: auto;
     overflow-y: visible;
-    padding-bottom: 180px; /* space for inventory tray + bottom nav */
+    padding-bottom: 200px; /* space for inventory tray + bottom nav */
   }
 
   body.tray-is-collapsed main {
-    padding-bottom: 80px; /* just bottom nav height */
+    padding-bottom: 90px; /* just bottom nav height */
+  }
+
+  /* --- Prevent iOS zoom on focus (must be >= 16px) --- */
+  input[type="text"],
+  input[type="search"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* --- Hide custom scrollbar on mobile for cleaner look --- */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  * {
+    scrollbar-width: none;
   }
 
   /* --- Top Bar Mobile --- */
   .top-bar {
-    height: 52px;
-    padding: 0 1rem;
+    height: 48px;
+    padding: 0 0.75rem;
     gap: 0.5rem;
   }
 
   #current-view-name {
-    display: none; /* The mobile bottom nav already shows this */
+    display: none;
   }
 
   .top-bar-actions {
-    gap: 0.4rem;
+    gap: 0.25rem;
     margin-left: auto;
   }
 
   .top-bar-action-btn {
-    padding: 8px !important;
-    min-width: 36px;
-    min-height: 36px;
+    padding: 0 !important;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
     justify-content: center;
+    border-radius: 12px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .top-bar-action-btn:active {
+    transform: scale(0.9);
+    background: rgba(0, 0, 0, 0.05);
   }
 
   .top-bar-action-btn .btn-label {
-    display: none; /* Hide text, show only icons */
+    display: none;
   }
 
   .top-bar-action-btn svg {
@@ -808,35 +849,57 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
 
   /* --- View Container Mobile --- */
   .view-container {
-    padding: 1.25rem 1rem;
+    padding: 1rem 0.875rem;
+    animation: mobileSlideIn 0.25s ease-out;
+  }
+
+  @keyframes mobileSlideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   /* --- Help Box Mobile --- */
   .help-box {
     padding: 0.75rem 1rem;
-    margin-bottom: 1.25rem;
-    font-size: 0.8rem;
+    margin-bottom: 1rem;
+    font-size: 0.78rem;
+    border-radius: 8px;
+  }
+
+  .help-box strong {
+    font-size: 0.85rem;
   }
 
   /* --- Icon Maker: Stack to 1 Column --- */
   .icon-maker-grid {
     grid-template-columns: 1fr;
-    gap: 1.25rem;
+    gap: 1rem;
   }
 
   .card-glass {
     padding: 1rem;
+    border-radius: 16px;
   }
 
   .card-glass:hover {
-    transform: none; /* Disable hover lift on mobile */
+    transform: none;
     box-shadow: var(--shadow-sm);
   }
 
   .search-results-box {
-    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
     gap: 8px;
-    max-height: 250px;
+    max-height: 220px;
+    margin-top: 1rem;
+  }
+
+  .search-img-item {
+    border-radius: 8px;
+    border-width: 2px;
+  }
+
+  .search-img-item:active {
+    transform: scale(0.95);
   }
 
   #icon-canvas {
@@ -845,79 +908,127 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
 
   /* --- Tier List Mobile --- */
   .tier-row {
-    min-height: 80px;
-    border-radius: var(--radius-md);
+    min-height: 72px;
+    border-radius: 10px;
+    margin-bottom: 8px;
   }
 
   .tier-label-cell {
-    width: 60px;
-    min-width: 60px;
+    width: 56px;
+    min-width: 56px;
+    border-radius: 10px 0 0 10px;
   }
 
   .tier-name-input {
-    font-size: 1.4rem;
+    font-size: 1.3rem;
   }
 
   .tier-actions {
-    opacity: 1; /* Always visible on mobile (no hover) */
-    top: 4px;
-    left: 4px;
-    flex-wrap: wrap;
+    opacity: 1;
+    position: static;
+    display: flex;
+    flex-wrap: nowrap;
     gap: 2px;
+    padding: 4px;
+    justify-content: center;
   }
 
   .action-btn {
-    width: 22px;
-    height: 22px;
-    font-size: 0.6rem;
-    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    font-size: 0.55rem;
+    border-radius: 6px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .action-btn:active {
+    transform: scale(0.85);
+    background: var(--primary-glow);
   }
 
   .tier-items-cell {
-    padding: 8px;
-    gap: 6px;
+    padding: 6px;
+    gap: 4px;
+    min-height: 56px;
   }
 
   /* --- Matchup Table Mobile --- */
   .matchup-scroll-wrapper {
-    border-radius: 14px;
+    border-radius: 12px;
   }
 
   .matchup-table th, .matchup-table td {
-    padding: 8px !important;
-    min-width: 60px;
+    padding: 6px !important;
+    min-width: 56px;
+  }
+
+  .matchup-table select {
+    font-size: 16px !important; /* Prevent iOS zoom */
+    padding: 8px 4px;
+    min-height: 40px;
+    border-radius: 8px;
   }
 
   /* --- Plotter Mobile --- */
   .plot-area {
-    aspect-ratio: 1 / 1; /* Square is easier on mobile */
-    border-radius: var(--radius-lg);
+    aspect-ratio: 1 / 1;
+    border-radius: 14px;
+    touch-action: none; /* Prevent page scroll while dragging items */
   }
 
   #plotter .flex.gap-10 {
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
     padding: 1rem;
-    border-radius: var(--radius-lg);
+    border-radius: 14px;
+    margin-bottom: 0.75rem;
   }
 
   /* --- Inventory Tray Mobile --- */
   .global-inventory-tray {
     left: 0;
-    bottom: 64px; /* Sit above mobile bottom nav */
+    bottom: 72px; /* Above mobile bottom nav (now 72px) */
     padding: 0.5rem 0;
-    z-index: 2100; /* Above mobile bottom nav (2000) so toggle stays visible */
+    z-index: 2100;
   }
 
   body.tray-is-collapsed .global-inventory-tray {
-    transform: translateY(100%); /* Hide tray content but keep toggle button visible */
+    transform: translateY(100%);
   }
 
+  /* Redesigned toggle as grab-handle pill */
   .inventory-toggle-btn {
-    top: -30px;
-    width: 50px;
-    height: 30px;
-    border-radius: 10px 10px 0 0;
+    top: -28px;
+    width: 56px;
+    height: 28px;
+    border-radius: 14px 14px 0 0;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-bottom: none;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .inventory-toggle-btn::after {
+    content: '';
+    width: 28px;
+    height: 4px;
+    background: #cbd5e1;
+    border-radius: 2px;
+    position: absolute;
+    top: 6px;
+  }
+
+  .inventory-toggle-btn svg {
+    display: none; /* Replace with grab handle visual */
+  }
+
+  .inventory-toggle-btn:active {
+    background: #f1f5f9;
   }
 
   .inventory-container {
@@ -925,77 +1036,127 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
   }
 
   .inventory-container .flex.items-center.justify-between.mb-4 {
-    flex-direction: column;
+    flex-direction: row;
     gap: 0.5rem;
-    align-items: stretch;
+    align-items: center;
     margin-bottom: 0.5rem !important;
+    flex-wrap: wrap;
   }
 
   .inventory-container h3 {
-    font-size: 0.75rem !important;
+    font-size: 0.7rem !important;
+  }
+
+  /* Hide size slider on mobile to save space */
+  .inventory-container .flex.items-center.gap-4.bg-white\/50 {
+    display: none;
   }
 
   .tray-wrapper {
     padding: 0.5rem;
-    border-radius: var(--radius-md);
+    border-radius: 10px;
   }
 
   .tray-grid {
-    gap: 8px;
+    gap: 6px;
   }
 
   .tray-icon-img {
     flex-shrink: 0;
+    border-radius: 8px;
   }
 
   .tray-icon-img:hover {
-    transform: none; /* no hover effect on mobile */
+    transform: none;
+  }
+
+  .tray-icon-img:active {
+    transform: scale(0.92);
+    transition: transform 0.1s;
   }
 
   /* --- Buttons Mobile --- */
   .btn {
-    padding: 8px 16px;
-    font-size: 0.8rem;
+    padding: 10px 18px;
+    font-size: 0.82rem;
+    border-radius: 10px;
+    min-height: 44px; /* Apple HIG minimum */
+    -webkit-tap-highlight-color: transparent;
   }
 
-  /* --- Delete Button: Always Visible on Mobile --- */
+  .btn:active {
+    transform: scale(0.96);
+  }
+
+  .btn-primary:active {
+    background: var(--primary-hover);
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+  }
+
+  /* --- Delete Button: Always Visible, Larger on Mobile --- */
   .group .inventory-delete-btn,
   .plot-item .inventory-delete-btn {
     opacity: 1 !important;
     visibility: visible !important;
-    width: 22px !important;
-    height: 22px !important;
-    font-size: 12px !important;
-    top: -6px !important;
-    right: -6px !important;
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 14px !important;
+    top: -8px !important;
+    right: -8px !important;
+    border-width: 2px !important;
+  }
+
+  .inventory-delete-btn:active {
+    transform: scale(0.85) !important;
   }
 
   /* --- Tier List Header Mobile --- */
   #tier-list .flex.items-center.justify-between.mb-4 {
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
     align-items: stretch;
+    margin-bottom: 0.75rem;
+  }
+
+  #tier-list .text-2xl {
+    font-size: 1.25rem;
   }
 
   #tier-list .flex.gap-4 {
-    justify-content: flex-start;
-    gap: 0.5rem;
+    display: flex;
+    gap: 0.4rem;
   }
 
   #tier-list .flex.gap-4 .btn {
-    padding: 6px 12px;
+    padding: 8px 14px;
     font-size: 0.75rem;
+    min-height: 36px;
+  }
+
+  /* --- Add Row Button Mobile --- */
+  #tier-list .mt-8 {
+    margin-top: 1rem;
+  }
+
+  #tier-list .mt-8 .btn {
+    width: 100%;
+    justify-content: center;
   }
 
   /* --- Plotter Labels Mobile --- */
   #label-top, #label-bottom, #label-right, #label-left {
-    font-size: 0.6rem !important;
+    font-size: 0.55rem !important;
   }
 
-  #label-top { top: 0.75rem !important; }
-  #label-bottom { bottom: 0.75rem !important; }
-  #label-right { right: 0.75rem !important; }
-  #label-left { left: 0.75rem !important; }
+  #label-top { top: 0.5rem !important; }
+  #label-bottom { bottom: 0.5rem !important; }
+  #label-right { right: 0.5rem !important; }
+  #label-left { left: 0.5rem !important; }
+
+  /* --- Toast Mobile --- */
+  .toast-popup {
+    bottom: 10rem;
+  }
 }
 
 /* =============================================
@@ -1003,13 +1164,19 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
    ============================================= */
 @media (max-width: 400px) {
   .mobile-brand-text {
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
 
   .top-bar-action-btn {
-    padding: 6px !important;
-    min-width: 32px;
-    min-height: 32px;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .top-bar-action-btn svg {
+    width: 16px;
+    height: 16px;
   }
 
   .tier-label-cell {
@@ -1022,11 +1189,21 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 4px v
   }
 
   .mobile-nav-btn {
-    font-size: 0.6rem;
+    font-size: 0.55rem;
   }
 
   .mobile-nav-btn svg {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
+  }
+
+  .btn {
+    padding: 8px 14px;
+    font-size: 0.78rem;
+    min-height: 40px;
+  }
+
+  .search-results-box {
+    grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
   }
 }

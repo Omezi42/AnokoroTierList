@@ -109,6 +109,12 @@ function setupNav() {
 
     initTraySortable(viewId);
     renderInventory();
+
+    // Scroll to top on mobile for clean view transition
+    const mainEl = document.querySelector('main');
+    if (mainEl && window.innerWidth <= 768) {
+      mainEl.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }
 
   sidebtns.forEach(btn => {
@@ -681,17 +687,21 @@ function setupPlotterLabels() {
 // --- Firebase & Export ---
 async function saveToFirebase() {
   const btn = document.getElementById('save-btn');
-  btn.innerText = '保存中...';
+  const label = btn.querySelector('.btn-label');
+  const originalText = label ? label.innerText : btn.innerText;
+  if (label) label.innerText = '保存中...';
+  else btn.innerText = '保存中...';
   try {
     const ref = await addDoc(collection(db, "charts"), { inventory: state.inventory, timestamp: Date.now() });
     const url = `${window.location.origin}${window.location.pathname}?id=${ref.id}`;
     navigator.clipboard.writeText(url);
-    alert("クラウドに保存しました！URLをコピーしました。");
+    showToast("保存完了！URLをコピーしました");
   } catch (e) { 
     console.error("Firebase Save Error:", e);
-    alert("保存失敗: " + e.message); 
+    showToast("保存失敗: " + e.message);
   } finally { 
-    btn.innerText = 'クラウド保存'; 
+    if (label) label.innerText = originalText;
+    else btn.innerText = originalText;
   }
 }
 
